@@ -1,11 +1,12 @@
 
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import BaseModal from '../ui/BaseModal';
 import { XIcon, SparklesIcon, ClipboardIcon, CheckIcon, UploadCloudIcon, FileImageIcon, FileAudioIcon } from '../icons';
 import Spinner from '../ui/Spinner';
 import { generateAdvancedGreeting } from '../../services/geminiService';
-import type { ProfileInfo } from '../../types';
+import type { ProfileInfo, FavoriteGreeting } from '../../types';
 
 type StyleType = '감성적 안부' | '정보 제공형' | '명언/격언 인용';
 
@@ -25,6 +26,7 @@ interface AdvancedGreetingModalProps {
   isOpen: boolean;
   onClose: () => void;
   profileInfo: ProfileInfo | null;
+  favoriteGreetings: FavoriteGreeting[];
   onAddFavoriteGreeting: (content: string) => Promise<void>;
   initialValues?: Partial<AdvancedGreetingOptions>;
   onMessageGenerated: (message: string) => void;
@@ -70,7 +72,7 @@ const getMimeTypeFromFile = (file: File): string => {
 };
 
 // FIX: Changed from a default export to a named export to resolve module loading issues.
-export const AdvancedGreetingModal: React.FC<AdvancedGreetingModalProps> = ({ isOpen, onClose, profileInfo, onAddFavoriteGreeting, initialValues = {}, onMessageGenerated }) => {
+export const AdvancedGreetingModal: React.FC<AdvancedGreetingModalProps> = ({ isOpen, onClose, profileInfo, favoriteGreetings, onAddFavoriteGreeting, initialValues = {}, onMessageGenerated }) => {
   
   const [options, setOptions] = useState<Omit<AdvancedGreetingOptions, 'examples'>>({
       style: '감성적 안부',
@@ -85,6 +87,7 @@ export const AdvancedGreetingModal: React.FC<AdvancedGreetingModalProps> = ({ is
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
   
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -131,6 +134,14 @@ export const AdvancedGreetingModal: React.FC<AdvancedGreetingModalProps> = ({ is
     }
   }, [isOpen, initialValues, resetState]);
 
+  const handleToggleExample = (content: string) => {
+    setExamples(prev => 
+      prev.includes(content) 
+        ? prev.filter(e => e !== content) 
+        : [...prev, content]
+    );
+  };
+
   const handleGenerate = async () => {
     setIsLoading(true);
     setErrorState('');
@@ -147,6 +158,12 @@ export const AdvancedGreetingModal: React.FC<AdvancedGreetingModalProps> = ({ is
         });
         setMessage(msg);
         onMessageGenerated(msg);
+        
+        // Scroll to result
+        setTimeout(() => {
+            resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 100);
+
     } catch (err) {
         setErrorState(err instanceof Error ? err.message : 'AI 메시지 생성에 실패했습니다.');
     } finally {
@@ -240,6 +257,28 @@ export const AdvancedGreetingModal: React.FC<AdvancedGreetingModalProps> = ({ is
                 </div>
             </div>
 
+            {favoriteGreetings && favoriteGreetings.length > 0 && (
+                <div className="mt-2">
+                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">나의 스타일 참고하기 (선택 시 AI가 학습)</label>
+                    <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar p-2 border border-[var(--border-color-strong)] rounded-md bg-[var(--background-tertiary)]">
+                        {favoriteGreetings.map(greeting => (
+                             <label key={greeting.id} className="flex items-start gap-2 cursor-pointer hover:bg-[var(--background-secondary)] p-1 rounded" onChange={() => handleToggleExample(greeting.content)}>
+                                <input
+                                    type="checkbox"
+                                    checked={examples.includes(greeting.content)}
+                                    onChange={() => {}} // handled by label wrapper
+                                    className="mt-1 h-4 w-4 rounded border-[var(--border-color-strong)] bg-[var(--background-primary)] text-[var(--background-accent)] focus:ring-[var(--background-accent)] flex-shrink-0"
+                                />
+                                <span className="text-sm text-[var(--text-primary)] leading-snug select-none">{greeting.content}</span>
+                            </label>
+                        ))}
+                    </div>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">
+                        * 선택한 문구들의 말투와 스타일을 AI가 모방하여 작성합니다.
+                    </p>
+                </div>
+            )}
+
             <div>
                 <label htmlFor="keywords" className="block text-sm font-medium text-[var(--text-secondary)]">포함할 키워드 (쉼표로 구분)</label>
                 <input id="keywords" type="text" value={options.keywords} onChange={e => setOptions(prev => ({ ...prev, keywords: e.target.value }))} className="mt-1 w-full p-2 border border-[var(--border-color-strong)] rounded-md bg-[var(--background-tertiary)]" placeholder="예: 경제, 금융, 뉴스"/>
@@ -255,7 +294,7 @@ export const AdvancedGreetingModal: React.FC<AdvancedGreetingModalProps> = ({ is
             </div>
             
             <div>
-                <label className="block text-sm font-medium text-[var(--text-secondary)]">이미지/음성 파일 첨부하여 문맥 부여</label>
+                <label className="block text-sm font-medium text-[var(--text-secondary)] mt-2">이미지/음성 파일 첨부하여 문맥 부여</label>
                 {selectedFile ? (
                     <div className="mt-1 p-2 border-2 border-dashed rounded-lg bg-[var(--background-tertiary)] border-[var(--border-color-strong)]">
                         <div className="flex items-center justify-between text-[var(--text-secondary)]">
@@ -284,7 +323,7 @@ export const AdvancedGreetingModal: React.FC<AdvancedGreetingModalProps> = ({ is
             {error && <p className="text-center text-sm text-[var(--text-danger)] bg-red-500/10 p-2 rounded-md">{error}</p>}
             {isLoading && <div className="flex justify-center py-4"><Spinner /></div>}
             {message && !isLoading && (
-                <div className="p-4 bg-[var(--background-primary)] rounded-md border border-[var(--border-color)] space-y-2">
+                <div ref={resultRef} className="p-4 bg-[var(--background-primary)] rounded-md border border-[var(--border-color)] space-y-2 animate-fade-in">
                     <h3 className="text-sm font-semibold text-[var(--text-primary)]">AI 생성 결과</h3>
                     <pre className="whitespace-pre-wrap font-sans text-sm text-[var(--text-secondary)]">{message}</pre>
                     <div className="flex justify-end items-center gap-2">

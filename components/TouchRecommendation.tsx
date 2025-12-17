@@ -631,6 +631,7 @@ export const TouchRecommendation: React.FC<TouchRecommendationProps> = ({
                 isOpen={isAdvancedGreetingModalOpen}
                 onClose={() => setIsAdvancedGreetingModalOpen(false)}
                 profileInfo={profileInfo}
+                favoriteGreetings={favoriteGreetings}
                 onAddFavoriteGreeting={onAddFavoriteGreeting}
                 onMessageGenerated={setGeneratedMessage}
             />

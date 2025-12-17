@@ -720,20 +720,20 @@ export const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({ custom
                             </div>
                         </div>
                     )}
-                </form>
+                </div>
             </div>
-        </div>
-        <div className="p-4 bg-[var(--background-tertiary)] border-t border-[var(--border-color)] flex justify-end items-center space-x-4 flex-shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2 bg-[var(--background-secondary)] border border-[var(--border-color-strong)] rounded-md text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--background-primary)]">취소</button>
-          <button
-            type="submit"
-            form="appointment-form"
-            className="px-6 py-2 bg-[var(--background-accent)] text-[var(--text-on-accent)] rounded-md text-sm font-medium hover:bg-[var(--background-accent-hover)]"
-          >
+            </form>
+            <div className="p-4 bg-[var(--background-tertiary)] border-t border-[var(--border-color)] flex justify-end items-center space-x-4 flex-shrink-0">
+            <button type="button" onClick={onClose} className="px-4 py-2 bg-[var(--background-secondary)] border border-[var(--border-color-strong)] rounded-md text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--background-primary)]">취소</button>
+            <button
+                type="submit"
+                form="appointment-form"
+                className="px-6 py-2 bg-[var(--background-accent)] text-[var(--text-on-accent)] rounded-md text-sm font-medium hover:bg-[var(--background-accent-hover)]"
+            >
                 {activeTab === 'ai' ? (isLoading ? '분석 중...' : '텍스트 분석') : (isEditing ? '저장' : '추가')}
             </button>
-          </div>
-    </BaseModal>
+            </div>
+      </BaseModal>
     </>
   );
 };
