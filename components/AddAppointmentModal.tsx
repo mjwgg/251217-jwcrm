@@ -715,24 +715,23 @@ export const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({ custom
                                 )}
                             </div>
                             <div>
-                                <label htmlFor="notes" className="block text-sm font-medium text-[var(--text-secondary)]">메모</label>
+<label htmlFor="notes" className="block text-sm font-medium text-[var(--text-secondary)]">메모</label>
                                 <textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} rows={3} className="mt-1 block w-full border border-[var(--border-color-strong)] bg-[var(--background-tertiary)] text-[var(--text-primary)] rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[var(--background-accent)] focus:border-[var(--background-accent)] sm:text-sm"></textarea>
                             </div>
                         </div>
                     )}
                 </div>
             </div>
-            </form>
             <div className="p-4 bg-[var(--background-tertiary)] border-t border-[var(--border-color)] flex justify-end items-center space-x-4 flex-shrink-0">
-            <button type="button" onClick={onClose} className="px-4 py-2 bg-[var(--background-secondary)] border border-[var(--border-color-strong)] rounded-md text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--background-primary)]">취소</button>
-            <button
-                type="submit"
-                form="appointment-form"
-                className="px-6 py-2 bg-[var(--background-accent)] text-[var(--text-on-accent)] rounded-md text-sm font-medium hover:bg-[var(--background-accent-hover)]"
-            >
-                {activeTab === 'ai' ? (isLoading ? '분석 중...' : '텍스트 분석') : (isEditing ? '저장' : '추가')}
-            </button>
+                <button type="button" onClick={onClose} className="px-4 py-2 bg-[var(--background-secondary)] border border-[var(--border-color-strong)] rounded-md text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--background-primary)]">취소</button>
+                <button
+                    type="submit"
+                    className="px-6 py-2 bg-[var(--background-accent)] text-[var(--text-on-accent)] rounded-md text-sm font-medium hover:bg-[var(--background-accent-hover)]"
+                >
+                    {activeTab === 'ai' ? (isLoading ? '분석 중...' : '텍스트 분석') : (isEditing ? '저장' : '추가')}
+                </button>
             </div>
+        </form>
       </BaseModal>
     </>
   );
