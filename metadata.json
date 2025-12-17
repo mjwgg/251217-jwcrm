@@ -1,0 +1,8 @@
+{
+  "name": "251217 api제거",
+  "description": "new ",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
