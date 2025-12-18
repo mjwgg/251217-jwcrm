@@ -1,11 +1,8 @@
-
-
-
-const CACHE_NAME = 'ai-crm-cache-v11';
+const CACHE_NAME = 'ai-crm-cache-v12';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/index.tsx?v=4.3.8',
+  '/index.tsx?v=4.3.9',
   '/icon.svg'
 ];
 

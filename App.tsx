@@ -344,7 +344,7 @@ const UpdateNotification: React.FC<{ onUpdate: () => void; }> = ({ onUpdate }) =
     >
       <InfoIcon className="h-5 w-5 mr-3" />
       <span className="font-medium mr-4">새로운 버전이 있습니다!</span>
-      <button type="button" className="font-bold underline hover:no-underline" onClick={onUpdate}>
+      <button type="button" className="font-bold underline hover:no-underline" onClick={handleUpdate}>
         업데이트
       </button>
     </div>
@@ -443,7 +443,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       const registerServiceWorker = () => {
-        const swUrl = `${window.location.origin}/sw.js?v=4.3.8`;
+        const swUrl = `${window.location.origin}/sw.js?v=4.3.9`;
         navigator.serviceWorker.register(swUrl).then(registration => {
           registration.onupdatefound = () => {
             const newWorker = registration.installing;
@@ -1873,6 +1873,7 @@ const App: React.FC = () => {
                   onDeleteMultipleConsultations={deleteMultipleConsultations}
                   onAddPrediction={addPerformancePrediction}
                   onUpdatePrediction={updatePerformancePrediction}
+                  // FIX: Pass required onOpenConsultationRecordModal prop to ScheduleCalendar
                   onOpenConsultationRecordModal={handleOpenConsultationRecordModal}
                  />
       case 'touch':
@@ -1928,8 +1929,9 @@ const App: React.FC = () => {
                   onRequestAction={handleRequestAction}
                   onRequestAppointmentAction={handleRequestAppointmentAction}
                   updateCustomerTags={updateCustomerTags}
-                  onSetOnAppointmentAddSuccess={handleSetOnAppointmentAddSuccess}
+                  // FIX: Corrected undefined onSelectCustomer variable to use the intended setter function.
                   onSelectCustomer={(customer, tab) => setSelectedCustomer({ customer, initialTab: tab })}
+                  onSetOnAppointmentAddSuccess={handleSetOnAppointmentAddSuccess}
                   onOpenRejectionModal={(customer) => setRejectionModalState({ isOpen: true, customer })}
                   onOpenConsultationRecordModal={handleOpenConsultationRecordModal}
                 />
