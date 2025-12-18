@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import type { Customer, Consultation, CustomerTypeDefinition, Product, Contract, CallRecord, MeetingType, NamedAnniversary, CoverageDetail } from '../types';
 import { callResultLabels } from '../types';
@@ -7,9 +6,8 @@ import { getFieldsForCustomerType, type FieldConfig } from '../config/customerFi
 import { analyzeInsurancePolicy } from '../services/geminiService';
 import { setItem, getItem } from '../services/storageService';
 import Tag from './ui/Tag';
-import ConsultationAnalyzer from './ConsultationAnalyzer';
 import Spinner from './ui/Spinner';
-import { XIcon, ClipboardIcon, CheckIcon, PencilIcon, TrashIcon, PlusIcon, DownloadIcon, UploadCloudIcon } from './icons';
+import { XIcon, ClipboardIcon, CheckIcon, PencilIcon, TrashIcon, PlusIcon, DownloadIcon, UploadCloudIcon, PhoneIcon } from './icons';
 import BaseModal from './ui/BaseModal';
 import ConfirmationModal from './ui/ConfirmationModal';
 import { useLunarCalendar } from '../hooks/useData';
@@ -194,8 +192,6 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ custom
       callHistory: customer.callHistory || [],
   });
   const [contactCopied, setContactCopied] = useState(false);
-  const [newConsultationNotes, setNewConsultationNotes] = useState('');
-  const [newConsultationMeetingType, setNewConsultationMeetingType] = useState<MeetingType>('AP');
   const [activeTab, setActiveTab] = useState<'details' | 'consultations' | 'contracts' | 'callHistory' | 'introductions'>(initialTab);
   
   const [isSaving, setIsSaving] = useState(false);
@@ -219,8 +215,6 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ custom
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const tagInputRef = useRef<HTMLInputElement>(null);
-
-  const [draft, setDraft] = useState<{ notes: string; meetingType: MeetingType } | null>(null);
   
   const [isAnalyzingPolicy, setIsAnalyzingPolicy] = useState(false);
 
@@ -257,14 +251,6 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ custom
   }, [customer]);
 
   useEffect(() => {
-    const DRAFT_STORAGE_KEY = `consultation_draft_${customer.id}`;
-    const savedDraft = getItem<{ notes: string; meetingType: MeetingType }>(DRAFT_STORAGE_KEY);
-    if (savedDraft?.notes) {
-      setDraft(savedDraft);
-    }
-  }, [customer.id]);
-
-  useEffect(() => {
     if (newContractSeed && initialTab === 'contracts') {
         setIsEditing(true);
         setIsAddingContract(true);
@@ -280,13 +266,24 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ custom
   }, [isEditing, editedCustomer.acquisitionSourceDetail]);
 
   const isChanged = useMemo(() => {
-    const originalContracts = JSON.stringify(customer.contracts || []);
-    const editedContracts = JSON.stringify(editedCustomer.contracts || []);
-    
-    const customerDetailsChanged = JSON.stringify({ ...customer, contracts: null }) !== JSON.stringify({ ...editedCustomer, contracts: null });
+    // 깊은 비교 대신 주요 필드들을 명시적으로 비교하여 감도를 높임
+    const fieldsToCompare: (keyof Customer)[] = [
+        'name', 'contact', 'birthday', 'homeAddress', 'workAddress', 
+        'occupation', 'gender', 'familyRelations', 'monthlyPremium',
+        'preferredContactTime', 'type', 'medicalHistory', 'interests', 'notes'
+    ];
 
-    return customerDetailsChanged || (originalContracts !== editedContracts) || newConsultationNotes.trim() !== '';
-  }, [customer, editedCustomer, newConsultationNotes]);
+    const detailsChanged = fieldsToCompare.some(field => {
+        const original = (customer as any)[field] || '';
+        const edited = (editedCustomer as any)[field] || '';
+        return String(original).trim() !== String(edited).trim();
+    });
+
+    const tagsChanged = JSON.stringify([...customer.tags].sort()) !== JSON.stringify([...editedCustomer.tags].sort());
+    const contractsChanged = JSON.stringify(customer.contracts || []) !== JSON.stringify(editedCustomer.contracts || []);
+
+    return detailsChanged || tagsChanged || contractsChanged;
+  }, [customer, editedCustomer]);
 
   const handleSaveClick = async () => {
     setIsSaving(true);
@@ -303,33 +300,40 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ custom
             customerToSave.type = 'existing';
             typeChanged = true;
         }
-
-        if (newConsultationNotes.trim()) {
-            const newConsultation: Consultation = {
-                id: `consult-${Date.now()}`,
-                date: new Date().toISOString(),
-                meetingType: newConsultationMeetingType,
-                notes: newConsultationNotes,
-            };
-            customerToSave.consultations = [newConsultation, ...customerToSave.consultations];
-        }
         
         await onSave(customerToSave);
 
         if (typeChanged) {
             onShowNotification("고객 유형이 '기존고객'으로 자동 변경되었습니다.", 'success');
         }
-
-        // Clear draft from storage on successful save
-        const DRAFT_STORAGE_KEY = `consultation_draft_${customer.id}`;
-        setItem(DRAFT_STORAGE_KEY, undefined);
-        setDraft(null);
-        setNewConsultationNotes('');
     } catch (e) {
         setSaveError((e as Error).message);
     } finally {
         setIsSaving(false);
     }
+  };
+
+  const handleTabChange = async (tab: typeof activeTab) => {
+    if (activeTab === tab) return;
+
+    if (isEditing && isChanged) {
+        // 알림 메시지를 더 명확하게 수정
+        if (window.confirm('저장되지 않은 변경 사항이 있습니다. 지금 저장하고 이동하시겠습니까?\n\n[확인] : 저장 후 이동\n[취소] : 현재 탭에 머물기')) {
+            await handleSaveClick();
+            // handleSaveClick 내부에서 onSave를 호출하며, App.tsx 로직에 의해 모달이 닫힐 수 있음
+            return;
+        } else {
+            // 취소를 누르면 탭 이동을 하지 않고 현재 편집 상태를 유지함
+            return;
+        }
+    }
+    
+    // 수정 중이었지만 변경사항이 없는 경우, 편집 모드를 종료하고 탭 이동
+    if (isEditing && !isChanged) {
+        setIsEditing(false);
+    }
+    
+    setActiveTab(tab);
   };
 
   const handleSaveNewConsultation = async (data: ConsultationRecordData) => {
@@ -340,11 +344,17 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ custom
         notes: data.notes,
     };
     
+    const updatedConsultations = [newConsultation, ...editedCustomer.consultations].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
     const updatedCustomer: Customer = {
         ...editedCustomer,
-        consultations: [newConsultation, ...editedCustomer.consultations],
+        consultations: updatedConsultations,
     };
     
+    // 로컬 상태 즉시 업데이트
+    setEditedCustomer(updatedCustomer);
+    
+    // DB 업데이트
     await onUpdateCustomer(updatedCustomer);
     setIsRecordModalOpen(false);
     onShowNotification('상담 기록이 성공적으로 추가되었습니다.', 'success');
@@ -658,7 +668,11 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ custom
     const handleSelectOneConsultation = (id: string) => {
         setSelectedConsultationIds(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
             return newSet;
         });
     };
@@ -679,20 +693,14 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ custom
         setIsDeleteConfirmOpen(false);
     };
 
-    const restoreDraft = () => {
-        if (draft) {
-            setNewConsultationNotes(draft.notes);
-            setNewConsultationMeetingType(draft.meetingType);
-            const DRAFT_STORAGE_KEY = `consultation_draft_${customer.id}`;
-            setItem(DRAFT_STORAGE_KEY, undefined);
-            setDraft(null);
-        }
-    };
-
     const toggleExpandConsultation = (id: string) => {
         setExpandedConsultationIds(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
             return newSet;
         });
     };
@@ -1158,11 +1166,11 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ custom
           <div className="flex-1 min-h-0 flex flex-col md:flex-row">
             <div className="md:w-64 border-b md:border-b-0 md:border-r border-[var(--border-color)] p-2 md:p-4 flex-shrink-0">
                 <div className="flex md:flex-col gap-1">
-                    <button onClick={() => setActiveTab('details')} className={`w-full text-left p-3 rounded-lg font-medium text-sm ${activeTab === 'details' ? 'bg-[var(--background-accent-subtle)] text-[var(--text-accent)]' : 'hover:bg-[var(--background-tertiary)]'}`}>기본 정보</button>
-                    <button onClick={() => setActiveTab('consultations')} className={`w-full text-left p-3 rounded-lg font-medium text-sm ${activeTab === 'consultations' ? 'bg-[var(--background-accent-subtle)] text-[var(--text-accent)]' : 'hover:bg-[var(--background-tertiary)]'}`}>상담 히스토리</button>
-                    <button onClick={() => setActiveTab('contracts')} className={`w-full text-left p-3 rounded-lg font-medium text-sm ${activeTab === 'contracts' ? 'bg-[var(--background-accent-subtle)] text-[var(--text-accent)]' : 'hover:bg-[var(--background-tertiary)]'}`}>보유 계약</button>
-                    <button onClick={() => setActiveTab('callHistory')} className={`w-full text-left p-3 rounded-lg font-medium text-sm ${activeTab === 'callHistory' ? 'bg-[var(--background-accent-subtle)] text-[var(--text-accent)]' : 'hover:bg-[var(--background-tertiary)]'}`}>통화 기록</button>
-                    <button onClick={() => setActiveTab('introductions')} className={`w-full text-left p-3 rounded-lg font-medium text-sm ${activeTab === 'introductions' ? 'bg-[var(--background-accent-subtle)] text-[var(--text-accent)]' : 'hover:bg-[var(--background-tertiary)]'}`}>소개 관계</button>
+                    <button onClick={() => handleTabChange('details')} className={`w-full text-left p-3 rounded-lg font-medium text-sm ${activeTab === 'details' ? 'bg-[var(--background-accent-subtle)] text-[var(--text-accent)]' : 'hover:bg-[var(--background-tertiary)]'}`}>기본 정보</button>
+                    <button onClick={() => handleTabChange('consultations')} className={`w-full text-left p-3 rounded-lg font-medium text-sm ${activeTab === 'consultations' ? 'bg-[var(--background-accent-subtle)] text-[var(--text-accent)]' : 'hover:bg-[var(--background-tertiary)]'}`}>상담 히스토리</button>
+                    <button onClick={() => handleTabChange('contracts')} className={`w-full text-left p-3 rounded-lg font-medium text-sm ${activeTab === 'contracts' ? 'bg-[var(--background-accent-subtle)] text-[var(--text-accent)]' : 'hover:bg-[var(--background-tertiary)]'}`}>보유 계약</button>
+                    <button onClick={() => handleTabChange('callHistory')} className={`w-full text-left p-3 rounded-lg font-medium text-sm ${activeTab === 'callHistory' ? 'bg-[var(--background-accent-subtle)] text-[var(--text-accent)]' : 'hover:bg-[var(--background-tertiary)]'}`}>통화 기록</button>
+                    <button onClick={() => handleTabChange('introductions')} className={`w-full text-left p-3 rounded-lg font-medium text-sm ${activeTab === 'introductions' ? 'bg-[var(--background-accent-subtle)] text-[var(--text-accent)]' : 'hover:bg-[var(--background-tertiary)]'}`}>소개 관계</button>
                 </div>
             </div>
             
@@ -1224,79 +1232,74 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ custom
 
                  {activeTab === 'consultations' && (
                     <div className="space-y-4">
-                        <ConsultationAnalyzer onNotesChange={setNewConsultationNotes} initialDate={new Date().toISOString().split('T')[0]} onDateChange={()=>{}} meetingType={newConsultationMeetingType} onMeetingTypeChange={(type) => setNewConsultationMeetingType(type as MeetingType)} meetingTypeOptions={meetingTypeOptions} initialNotes={newConsultationNotes} customerId={customer.id}/>
-                        {draft && <button onClick={restoreDraft} className="text-sm text-[var(--text-accent)] hover:underline">임시저장된 내용 불러오기</button>}
-                         
-                         <div className="mt-6">
-                            <div className="flex justify-between items-center mb-3">
-                                <h3 className="text-lg font-semibold text-[var(--text-primary)]">상담 기록</h3>
-                                <button type="button" onClick={() => setIsRecordModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md bg-[var(--background-accent-subtle)] text-[var(--text-accent)] hover:bg-opacity-80">
-                                  <PlusIcon className="h-4 w-4" /> 새 상담 기록 추가
+                         <div className="flex justify-between items-center mb-3">
+                            <h3 className="text-lg font-semibold text-[var(--text-primary)]">상담 기록</h3>
+                            <button type="button" onClick={() => setIsRecordModalOpen(true)} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md bg-[var(--background-accent-subtle)] text-[var(--text-accent)] hover:bg-opacity-80">
+                                <PlusIcon className="h-4 w-4" /> 새 상담 기록 추가
+                            </button>
+                        </div>
+                        <div className="flex items-center justify-between p-2">
+                            <div className="flex items-center gap-3">
+                            <input
+                                ref={consultationHeaderCheckboxRef}
+                                type="checkbox"
+                                onChange={handleSelectAllConsultations}
+                                className="h-5 w-5 rounded border-[var(--border-color-strong)] bg-[var(--background-tertiary)] text-[var(--background-accent)] focus:ring-[var(--background-accent)]"
+                                aria-label="모든 상담 기록 선택"
+                            />
+                            <label className="text-sm font-medium text-[var(--text-secondary)]">전체 선택</label>
+                            </div>
+                            {selectedConsultationIds.size > 0 && (
+                                <button onClick={handleDeleteSelectedConsultations} className="flex items-center gap-1 text-sm text-[var(--text-danger)] font-medium hover:text-[var(--text-danger)]/80">
+                                    <TrashIcon className="h-4 w-4" /> 선택 삭제 ({selectedConsultationIds.size})
                                 </button>
-                            </div>
-                            <div className="flex items-center justify-between p-2">
-                                <div className="flex items-center gap-3">
-                                <input
-                                    ref={consultationHeaderCheckboxRef}
-                                    type="checkbox"
-                                    onChange={handleSelectAllConsultations}
-                                    className="h-5 w-5 rounded border-[var(--border-color-strong)] bg-[var(--background-tertiary)] text-[var(--background-accent)] focus:ring-[var(--background-accent)]"
-                                    aria-label="모든 상담 기록 선택"
-                                />
-                                <label className="text-sm font-medium text-[var(--text-secondary)]">전체 선택</label>
-                                </div>
-                                {selectedConsultationIds.size > 0 && (
-                                    <button onClick={handleDeleteSelectedConsultations} className="flex items-center gap-1 text-sm text-[var(--text-danger)] font-medium hover:text-[var(--text-danger)]/80">
-                                        <TrashIcon className="h-4 w-4" /> 선택 삭제 ({selectedConsultationIds.size})
-                                    </button>
-                                )}
-                            </div>
-                            <div className="space-y-3 mt-2">
-                               {editedCustomer.consultations.map(consult => (
-                                <div key={consult.id} className={`p-3 border rounded-lg ${selectedConsultationIds.has(consult.id) ? 'bg-[var(--background-accent-subtle)] border-[var(--background-accent)]/50' : 'bg-[var(--background-primary)] border-[var(--border-color-strong)]'}`}>
-                                    <div className="flex items-start gap-3">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedConsultationIds.has(consult.id)}
-                                            onChange={() => handleSelectOneConsultation(consult.id)}
-                                            className="h-5 w-5 rounded border-[var(--border-color-strong)] bg-[var(--background-tertiary)] text-[var(--background-accent)] focus:ring-[var(--background-accent)] mt-1"
-                                        />
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <p className="font-semibold text-[var(--text-primary)]">{new Date(consult.date).toLocaleDateString()}</p>
-                                                    <p className="text-sm text-[var(--text-muted)]">{consult.meetingType}</p>
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                    {editingConsultationId === consult.id ? (
-                                                        <>
-                                                        <button onClick={() => handleSaveConsultationEdit(consult.id)} className="p-1 text-green-500"><CheckIcon className="h-5 w-5"/></button>
-                                                        <button onClick={() => setEditingConsultationId(null)} className="p-1 text-[var(--text-muted)]"><XIcon className="h-5 w-5"/></button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                        <button onClick={() => { setEditingConsultationId(consult.id); setCurrentConsultationEdit(consult); }} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-accent)]"><PencilIcon className="h-4 w-4"/></button>
-                                                        <button onClick={() => onDeleteConsultation(customer.id, consult.id)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-danger)]"><TrashIcon className="h-4 w-4"/></button>
-                                                        </>
-                                                    )}
-                                                </div>
+                            )}
+                        </div>
+                        <div className="space-y-3 mt-2">
+                            {editedCustomer.consultations.map(consult => (
+                            <div key={consult.id} className={`p-3 border rounded-lg ${selectedConsultationIds.has(consult.id) ? 'bg-[var(--background-accent-subtle)] border-[var(--background-accent)]/50' : 'bg-[var(--background-primary)] border-[var(--border-color-strong)]'}`}>
+                                <div className="flex items-start gap-3">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedConsultationIds.has(consult.id)}
+                                        onChange={() => handleSelectOneConsultation(consult.id)}
+                                        className="h-5 w-5 rounded border-[var(--border-color-strong)] bg-[var(--background-tertiary)] text-[var(--background-accent)] focus:ring-[var(--background-accent)] mt-1"
+                                    />
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="font-semibold text-[var(--text-primary)]">{new Date(consult.date).toLocaleDateString()}</p>
+                                                <p className="text-sm text-[var(--text-muted)]">{consult.meetingType}</p>
                                             </div>
-                                            {editingConsultationId === consult.id ? (
-                                                <textarea value={currentConsultationEdit.notes || ''} onChange={(e) => handleEditConsultation(consult.id, 'notes', e.target.value)} rows={4} className="mt-2 w-full p-2 border rounded-md bg-[var(--background-tertiary)] border-[var(--border-color-strong)]" />
-                                            ) : (
-                                                <pre className={`mt-2 whitespace-pre-wrap font-sans text-sm text-[var(--text-secondary)] transition-all duration-300 ${expandedConsultationIds.has(consult.id) ? 'max-h-none' : 'max-h-16 overflow-hidden'}`}>
-                                                    {consult.notes}
-                                                </pre>
-                                            )}
-                                            {consult.notes.length > 100 && (
-                                                <button onClick={() => toggleExpandConsultation(consult.id)} className="text-xs text-[var(--text-accent)] mt-1">{expandedConsultationIds.has(consult.id) ? '접기' : '더보기'}</button>
-                                            )}
+                                            <div className="flex items-center gap-1">
+                                                {editingConsultationId === consult.id ? (
+                                                    <>
+                                                    <button onClick={() => handleSaveConsultationEdit(consult.id)} className="p-1 text-green-500"><CheckIcon className="h-5 w-5"/></button>
+                                                    <button onClick={() => setEditingConsultationId(null)} className="p-1 text-[var(--text-muted)]"><XIcon className="h-5 w-5"/></button>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                    <button onClick={() => { setEditingConsultationId(consult.id); setCurrentConsultationEdit(consult); }} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-accent)]"><PencilIcon className="h-4 w-4"/></button>
+                                                    <button onClick={() => onDeleteConsultation(customer.id, consult.id)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-danger)]"><TrashIcon className="h-4 w-4"/></button>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
+                                        {editingConsultationId === consult.id ? (
+                                            <textarea value={currentConsultationEdit.notes || ''} onChange={(e) => handleEditConsultation(consult.id, 'notes', e.target.value)} rows={4} className="mt-2 w-full p-2 border rounded-md bg-[var(--background-tertiary)] border-[var(--border-color-strong)]" />
+                                        ) : (
+                                            <pre className={`mt-2 whitespace-pre-wrap font-sans text-sm text-[var(--text-secondary)] transition-all duration-300 ${expandedConsultationIds.has(consult.id) ? 'max-h-none' : 'max-h-16 overflow-hidden'}`}>
+                                                {consult.notes}
+                                            </pre>
+                                        )}
+                                        {consult.notes.length > 100 && (
+                                            <button onClick={() => toggleExpandConsultation(consult.id)} className="text-xs text-[var(--text-accent)] mt-1">{expandedConsultationIds.has(consult.id) ? '접기' : '더보기'}</button>
+                                        )}
                                     </div>
                                 </div>
-                               ))}
                             </div>
-                         </div>
+                            ))}
+                        </div>
                     </div>
                  )}
 

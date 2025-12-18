@@ -91,6 +91,7 @@ const ConsultationRecordModal: React.FC<ConsultationRecordModalProps> = ({
       const currentMeetingType = defaultMeetingType || 'AP';
       setMeetingType(currentMeetingType);
       
+      // 초기 진입 시 템플릿 설정
       if (currentMeetingType === 'PC') {
         setNotes(pcConsultationTemplate);
       } else {
@@ -98,6 +99,24 @@ const ConsultationRecordModal: React.FC<ConsultationRecordModalProps> = ({
       }
     }
   }, [isOpen, defaultDate, defaultMeetingType]);
+
+  // 유형 변경 시 템플릿 자동 전환 로직
+  const handleMeetingTypeChange = (newType: MeetingType) => {
+    const prevType = meetingType;
+    setMeetingType(newType);
+
+    // 사용자가 내용을 수정하지 않았을 때만(즉, 이전 템플릿 그대로일 때만) 새 템플릿으로 교체
+    const isNotesDefault = notes === apConsultationTemplate || notes === pcConsultationTemplate || notes === '';
+    
+    if (isNotesDefault) {
+      if (newType === 'PC') {
+        setNotes(pcConsultationTemplate);
+      } else if (prevType === 'PC') {
+        // PC에서 다른 유형으로 넘어갈 때만 기본 양식으로 복구
+        setNotes(apConsultationTemplate);
+      }
+    }
+  };
 
   const handleSave = () => {
     onSave({ date, meetingType, notes });
@@ -136,7 +155,7 @@ const ConsultationRecordModal: React.FC<ConsultationRecordModalProps> = ({
             <select
               id="consultation-meetingType"
               value={meetingType}
-              onChange={(e) => setMeetingType(e.target.value as MeetingType)}
+              onChange={(e) => handleMeetingTypeChange(e.target.value as MeetingType)}
               className="mt-1 block w-full bg-[var(--background-secondary)] border border-[var(--border-color-strong)] rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[var(--background-accent)] focus:border-[var(--background-accent)]"
             >
               {meetingTypeOptions.map((type) => (

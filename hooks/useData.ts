@@ -209,7 +209,7 @@ export const useCustomers = () => {
 
         onProgress(0, totalToProcess);
 
-        const customersFromDb = await db.customers.bulkGet(customerIds);
+        const customersFromDb = await db.customers.bulkGet(customerIds) as (Customer | undefined)[];
         const customersToUpdate = customersFromDb.filter((c): c is Customer => c !== undefined);
 
         if (customersToUpdate.length === 0) {
@@ -266,10 +266,16 @@ export const useCustomers = () => {
 
     const addCustomer = useCallback(async (prospects: AIExtractedProspectWithDetails[]) => {
         const newCustomers: Customer[] = prospects.map(prospect => {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const date = String(d.getDate()).padStart(2, '0');
+            const todayStr = `${y}-${m}-${date}`;
+
             const newCustomer: Customer = {
                 id: `${new Date().toISOString()}-${Math.random()}`,
                 name: prospect.customerName,
-                registrationDate: prospect.registrationDate || new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().split('T')[0],
+                registrationDate: prospect.registrationDate || todayStr,
                 contact: formatPhoneNumberKR(prospect.contact),
                 birthday: prospect.dob.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'),
                 isBirthdayLunar: prospect.isBirthdayLunar,
@@ -305,7 +311,6 @@ export const useCustomers = () => {
                 newCustomer.parkingAvailable = prospect.parkingAvailable;
                 newCustomer.callResult = prospect.callResult;
                 newCustomer.breakTime = prospect.breakTime;
-                // Note: `prospect.notes` is already assigned above, so no need to duplicate logic or overwrite if empty.
             } else if (prospect.type === 'nurse_potential') {
                 newCustomer.schoolAndAge = prospect.schoolAndAge;
                 newCustomer.desiredStartDate = prospect.desiredStartDate;
@@ -327,10 +332,6 @@ export const useCustomers = () => {
             ...updatedCustomer,
             contact: formatPhoneNumberKR(updatedCustomer.contact),
         };
-
-        // Automatic geocoding on address change has been removed per user request.
-        // Coordinates will now only be updated via manual bulk conversion.
-        
         await db.customers.put(customerToSave);
         setCustomers((prev: Customer[]) => prev.map((c: Customer) => c.id === customerToSave.id ? normalizeCustomer(customerToSave) : c));
     }, []);
@@ -351,7 +352,6 @@ export const useCustomers = () => {
         notes: string,
         followUpDate?: string
     ): Promise<Customer | undefined> => {
-        // FIX: Explicitly cast the result from Dexie's `get` method.
         const customer = await db.customers.get(customerId) as Customer | undefined;
         if (customer) {
             const normalizedCustomer = normalizeCustomer(customer);
@@ -407,7 +407,6 @@ export const useCustomers = () => {
     }, []);
 
     const clearMultipleFollowUpDates = useCallback(async (customerIds: string[]) => {
-        // FIX: Explicitly cast the result from Dexie's `bulkGet` method.
         const customersToUpdate = await db.customers.bulkGet(customerIds) as (Customer | undefined)[];
         const updatedCustomers = customersToUpdate
             .filter((c): c is Customer => c !== undefined)
@@ -420,7 +419,6 @@ export const useCustomers = () => {
         if (updatedCustomers.length > 0) {
             const normalizedUpdatedCustomers = updatedCustomers.map(normalizeCustomer);
             await db.customers.bulkPut(normalizedUpdatedCustomers);
-            // FIX: Explicitly typing the function passed to setCustomers and its return value.
             setCustomers((prev: Customer[]): Customer[] => {
                 const updatedMap = new Map(normalizedUpdatedCustomers.map((c: Customer) => [c.id, c]));
                 return prev.map((c: Customer) => updatedMap.get(c.id) || c);
@@ -429,7 +427,6 @@ export const useCustomers = () => {
     }, []);
 
     const updateConsultation = useCallback(async (customerId: string, updatedConsultation: Consultation) => {
-        // FIX: Type 'unknown' is not assignable to type 'Customer'. Explicitly cast the result.
         const customer = await db.customers.get(customerId) as Customer | undefined;
         if (customer) {
             const normalizedCustomer = normalizeCustomer(customer as Customer);
@@ -444,7 +441,6 @@ export const useCustomers = () => {
 
     const deleteConsultation = useCallback(async (customerId: string, consultationId: string, silent = false) => {
         if (!silent && !window.confirm('이 상담 기록을 정말로 삭제하시겠습니까?')) return;
-        // FIX: Type 'unknown' is not assignable to type 'Customer'. Explicitly cast the result.
         const customer = await db.customers.get(customerId) as Customer | undefined;
         if (customer) {
             const normalizedCustomer = normalizeCustomer(customer);
@@ -469,7 +465,6 @@ export const useCustomers = () => {
         const customerIdsToUpdate = Object.keys(groupedByCustomer);
         if (customerIdsToUpdate.length === 0) return;
 
-        // FIX: Explicitly cast the result from Dexie's `bulkGet` method.
         const customersToUpdate = await db.customers.bulkGet(customerIdsToUpdate) as (Customer | undefined)[];
 
         const updatedCustomers = customersToUpdate
@@ -488,7 +483,6 @@ export const useCustomers = () => {
             const normalizedUpdatedCustomers = updatedCustomers.map(normalizeCustomer);
             await db.customers.bulkPut(normalizedUpdatedCustomers);
             const updatedCustomerMap = new Map(normalizedUpdatedCustomers.map((c: Customer) => [c.id, c]));
-            // FIX: Explicitly typing the function passed to setCustomers and its return value.
             setCustomers((prev: Customer[]): Customer[] => prev.map((c: Customer) => updatedCustomerMap.get(c.id) || c));
         }
     }, []);
@@ -551,7 +545,6 @@ export const useCustomers = () => {
 
         if (updatedCustomers.length > 0) {
             await db.customers.bulkPut(updatedCustomers);
-            // FIX: Explicitly typing the function passed to setCustomers and its return value.
             setCustomers((prev: Customer[]): Customer[] => {
                 const updatedMap = new Map(updatedCustomers.map((c: Customer) => [c.id, c]));
                 return prev.map((c: Customer) => updatedMap.get(c.id) || c);
@@ -567,7 +560,6 @@ export const useCustomers = () => {
 
         if (updatedCustomers.length > 0) {
             await db.customers.bulkPut(updatedCustomers);
-            // FIX: Explicitly typing the function passed to setCustomers and its return value.
             setCustomers((prev: Customer[]): Customer[] => {
                 const idsToUpdate = new Set(customerIds);
                 return prev.map((c: Customer) => idsToUpdate.has(c.id) ? { ...c, type: newType } : c);
@@ -580,7 +572,6 @@ export const useCustomers = () => {
         if (customerId) {
             customer = await db.customers.get(customerId) as Customer | undefined;
         } else {
-            // When creating a new customer, ensure there isn't one with same name and DOB already.
             const existing = await db.customers.where('name').equals(record.contractorName).filter(c => c.birthday === record.dob).first() as Customer | undefined;
             if (existing) {
                 customer = existing;
@@ -588,10 +579,16 @@ export const useCustomers = () => {
         }
     
         if (!customer) {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const date = String(d.getDate()).padStart(2, '0');
+            const todayStr = `${y}-${m}-${date}`;
+
             const newCustomer: Customer = {
                 id: `customer-${Date.now()}`,
                 name: record.contractorName,
-                registrationDate: new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().split('T')[0],
+                registrationDate: todayStr,
                 birthday: record.dob,
                 type: customerType || 'existing',
                 contact: '미확인',
@@ -820,10 +817,15 @@ export const useTodos = () => {
     useEffect(() => { db.todos.toArray().then(data => { setTodos(data); setIsLoading(false); }); }, []);
 
     const addTodo = useCallback(async (text: string, priority: Todo['priority'], date?: string) => {
-        const today = new Date();
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dt = String(d.getDate()).padStart(2, '0');
+        const todayStr = `${y}-${m}-${dt}`;
+
         const newTodo: Todo = {
             id: `todo-${Date.now()}`, text, completed: false,
-            date: date || new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0],
+            date: date || todayStr,
             priority,
         };
         await db.todos.add(newTodo);
@@ -849,8 +851,12 @@ export const useTodos = () => {
     }, []);
 
     const rolloverTodos = useCallback(async () => {
-        const today = new Date();
-        const todayStr = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dt = String(d.getDate()).padStart(2, '0');
+        const todayStr = `${y}-${m}-${dt}`;
+
         const todosToUpdate = await db.todos.where('date').below(todayStr).and(item => !item.completed).toArray();
         if (todosToUpdate.length > 0) {
             const updates = todosToUpdate.map(todo => ({ key: todo.id, changes: { date: todayStr } }));
