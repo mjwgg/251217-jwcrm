@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import type { Appointment, MeetingType, Todo, DailyReview, Customer, Consultation, PerformancePrediction, PerformanceRecord } from '../types';
-import { TrashIcon, PlusIcon, CalendarIcon, CheckIcon, SparklesIcon, XIcon, PencilIcon, CalendarPlusIcon, SearchIcon, InfoIcon, ViewColumnsIcon, ViewRowsIcon } from './icons';
+import type { Appointment, MeetingType, Todo, DailyReview, Goal, Customer, Consultation, PerformancePrediction, PerformanceRecord } from '../types';
+import { TrashIcon, PlusIcon, CalendarIcon, ListBulletIcon, CheckIcon, ClipboardIcon, SparklesIcon, CalendarDownloadIcon, XIcon, PencilIcon, DocumentTextIcon, CalendarPlusIcon, SearchIcon, AdjustmentsHorizontalIcon, ViewColumnsIcon, ViewRowsIcon } from './icons';
 import { getItem, setItem } from '../services/storageService';
 import MemoListView from './MemoListView';
 import DailyReviewList from './DailyReviewList';
@@ -53,6 +53,8 @@ interface ScheduleCalendarProps {
   onAddTodo: (text: string, priority: Todo['priority'], date?: string) => void;
   onToggleTodo: (id: string) => void;
   onDeleteTodo: (id: string) => void;
+  onAddPrediction: (prediction: Omit<PerformancePrediction, 'id'>) => Promise<void>;
+  onUpdatePrediction: (prediction: PerformancePrediction) => Promise<void>;
   onUpdateTodo: (id: string, data: { text: string; priority: Todo['priority'] }) => void;
   dailyReviews: DailyReview[];
   onSaveDailyReview: (review: DailyReview) => void;
@@ -64,8 +66,6 @@ interface ScheduleCalendarProps {
   onEditConsultation: (customerId: string, customerName: string, consultation: Consultation) => void;
   onDeleteConsultation: (customerId: string, consultationId: string) => void;
   onDeleteMultipleConsultations: (consultations: Array<{ customerId: string; consultationId: string }>) => void;
-  onAddPrediction: (prediction: Omit<PerformancePrediction, 'id'>) => Promise<void>;
-  onUpdatePrediction: (prediction: PerformancePrediction) => Promise<void>;
   predictions: PerformancePrediction[];
   performanceRecords: PerformanceRecord[];
   isMobile: boolean;
@@ -77,9 +77,7 @@ const formatTimeForCalendar = (timeStr: string): string => {
     const [hourStr, minuteStr] = timeStr.split(':');
     const hour = parseInt(hourStr, 10);
     const minute = parseInt(minuteStr, 10);
-    if (minute === 30) {
-        return `${hour}시 반`;
-    }
+    if (minute === 30) return `${hour}시 반`;
     return `${hour}시`;
 };
 
@@ -1000,7 +998,6 @@ export default function ScheduleCalendar({ appointments, customers, predictions,
       
       const birthdayAndAnniversaryAppointments: Appointment[] = customers.flatMap(customer => {
         const events: Appointment[] = [];
-        // 고객 생일 캘린더 표시 로직 제거 (요청사항 반영)
         
         if (customer.namedAnniversaries) {
             customer.namedAnniversaries.forEach(ann => {
@@ -1355,13 +1352,6 @@ export default function ScheduleCalendar({ appointments, customers, predictions,
     );
   };
   
-  const getKoreanHolidays = (year: number): { [key: string]: string } => {
-    const holidays: { [key: string]: string } = { '01-01': '신정', '03-01': '삼일절', '06-06': '현충일', '08-15': '광복절', '10-03': '개천절', '10-09': '한글날', '12-25': '성탄절' };
-    if (year === 2024) { holidays['02-09'] = '설날 연휴'; holidays['02-10'] = '설날'; holidays['02-11'] = '설날 연휴'; holidays['02-12'] = '설날 대체공휴일'; holidays['05-05'] = '어린이날'; holidays['05-06'] = '어린이날 대체공휴일'; holidays['05-15'] = '부처님 오신 날'; holidays['09-16'] = '추석 연휴'; holidays['09-17'] = '추석'; holidays['09-18'] = '추석 연휴'; }
-    else if (year === 2025) { holidays['01-28'] = '설날 연휴'; holidays['01-29'] = '설날'; holidays['01-30'] = '설날 연휴'; holidays['05-05'] = '어린이날, 부처님 오신 날'; holidays['10-05'] = '추석 연휴'; holidays['10-06'] = '추석'; holidays['10-07'] = '추석 연휴'; holidays['10-08'] = '추석 대체공휴일'; }
-    return holidays;
-  };
-
   const renderMonthCells = () => {
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
     const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
@@ -1707,7 +1697,7 @@ export default function ScheduleCalendar({ appointments, customers, predictions,
             </div>
         )}
         
-        {viewMode === 'reviewList' && <DailyReviewList reviews={dailyReviews} onSaveDailyReview={onSaveDailyReview} onDeleteDailyReview={onDeleteDailyReview} onDeleteMultipleDailyReviews={onDeleteMultipleDailyReviews} />}
+        {viewMode === 'reviewList' && <DailyReviewList reviews={dailyReviews} onSaveDailyReview={onSaveDailyReview} onDeleteDailyReview={onDeleteDailyReview} onDeleteMultipleDailyReviews={onDeleteMultipleDailyReviews} appointments={appointments} performanceRecords={performanceRecords} />}
         
         {isPredictionModalOpen && (
             <AddPerformancePredictionModal

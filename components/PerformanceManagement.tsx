@@ -1,8 +1,7 @@
 
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { PerformanceRecord, PerformancePrediction, Customer, Goal, Appointment, Contract, RejectionReason, RecontactProbability, CustomerType, MeetingType } from '../types';
-import { PlusIcon, TrashIcon, PencilIcon, UsersIcon, CalendarIcon, CheckIcon, SearchIcon, ClipboardIcon, MessageIcon, XIcon, CycleIcon, ChevronUpIcon, ChevronDownIcon, ArchiveBoxIcon, PhoneIcon, LocationMarkerIcon, BriefcaseIcon, DocumentTextIcon, SparklesIcon, InfoIcon, ChevronLeftIcon, ChevronRightIcon } from './icons';
+import { PlusIcon, TrashIcon, PencilIcon, UsersIcon, CalendarIcon, CheckIcon, SearchIcon, ClipboardIcon, MessageIcon, XIcon, CycleIcon, ChevronUpIcon, ChevronDownIcon, ArchiveBoxIcon, PhoneIcon, LocationMarkerIcon, BriefcaseIcon, DocumentTextIcon, SparklesIcon, InfoIcon, ChevronLeftIcon, ChevronRightIcon, ViewColumnsIcon, ViewRowsIcon, ListBulletIcon } from './icons';
 import AddPerformanceRecordModal from './AddPerformanceRecordModal';
 import AddPerformancePredictionModal from './AddPerformancePredictionModal';
 import BaseModal from './ui/BaseModal';
@@ -423,6 +422,16 @@ const calculateAge = (birthday: string): number | string => {
     }
 };
 
+const formatActivityTimeKR = (timeStr: string): string => {
+    if (!timeStr) return '';
+    const [hourStr, minuteStr] = timeStr.split(':');
+    const hour = parseInt(hourStr, 10);
+    const minute = parseInt(minuteStr, 10);
+    if (minute === 30) return `${hour}시 반`;
+    if (minute === 0) return `${hour}시`;
+    return `${hour}시 ${minute}분`;
+};
+
 const KanbanCard: React.FC<KanbanCardProps> = ({ title, subtitle, details, draggable, onDragStart, onClick, actions }) => (
     <div 
       className={`p-3 bg-[var(--background-tertiary)] rounded-md shadow-sm border border-[var(--border-color-strong)] ${draggable ? 'cursor-grab' : ''}`}
@@ -430,13 +439,13 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ title, subtitle, details, dragg
       onDragStart={onDragStart}
     >
       <div className="cursor-pointer" onClick={onClick}>
-        <div className="font-bold text-[var(--text-primary)] truncate flex items-center gap-2" title={typeof title === 'string' ? title : undefined}>
+        <div className="font-bold text-sm text-[var(--text-primary)] truncate flex items-center gap-2" title={typeof title === 'string' ? title : undefined}>
           {title}
         </div>
-        {subtitle && <p className="text-sm text-[var(--text-muted)] truncate" title={subtitle}>{subtitle}</p>}
+        {subtitle && <p className="text-xs text-[var(--text-muted)] truncate mt-0.5" title={subtitle}>{subtitle}</p>}
         <div className="mt-2 space-y-1">
           {details.map((detail, index) => (
-              <div key={index} className="flex items-center text-xs text-[var(--text-secondary)]">
+              <div key={index} className="flex items-center text-sm text-[var(--text-secondary)]">
                   {detail.icon}
                   <div className="truncate">{detail.text}</div>
               </div>
@@ -531,6 +540,7 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
   onOpenConsultationRecordModal,
 }) => {
   const [activeTab, setActiveTab] = useState(showOnlyKanban ? 'kanban' : 'status');
+  const [kanbanViewMode, setKanbanViewMode] = useState<'board' | 'list'>('board');
   const [currentDate, setCurrentDate] = useState(new Date());
   
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
@@ -787,12 +797,6 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
           const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59);
 
           switch(goal.label) {
-              case '월간 인정 실적':
-                  current = records
-                      .filter(r => { const d = new Date(r.applicationDate); return d >= startOfMonth && d <= endOfMonth; })
-                      .reduce((sum, r) => sum + r.recognizedPerformance, 0);
-                  break;
-              case '월간 보험료':
               case '월간 월 보험료':
                   current = records
                       .filter(r => { const d = new Date(r.applicationDate); return d >= startOfMonth && d <= endOfMonth; })
@@ -803,11 +807,6 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                       .filter(r => { const d = new Date(r.applicationDate); return d >= startOfMonth && d <= endOfMonth; })
                       .length;
                   break;
-              case '신규 고객 확보':
-                   current = customers
-                      .filter(c => { const d = new Date(c.registrationDate); return d >= startOfMonth && d <= endOfMonth; })
-                      .length;
-                   break;
           }
       } else if (goal.category === 'weekly') {
           const now = new Date();
@@ -822,9 +821,7 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
           endOfWeek.setHours(23, 59, 59, 999);
 
           const meetingTypeMap: { [key: string]: string } = {
-              '주간 AP 횟수': 'AP',
-              '주간 PC 횟수': 'PC',
-              '주간 TA 시도': 'TA'
+              '주간 AP 횟수': 'AP'
           };
           const meetingType = meetingTypeMap[goal.label];
           if (meetingType) {
@@ -861,12 +858,6 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  const handleMonthChange = (offset: number) => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(newDate.getMonth() + offset);
-    setCurrentDate(newDate);
-  };
 
   const uniqueInsuranceCompanies = useMemo(() => {
     const companies = new Set<string>();
@@ -1020,8 +1011,9 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
     const pcAppointments = appointments.filter(a => a.meetingType === 'PC' && a.status === 'scheduled' && a.date >= todayStr);
 
     const closedWon = records.filter(r => {
+      if (!r.applicationDate) return false;
       const appDate = new Date(r.applicationDate);
-      return appDate.getMonth() === today.getMonth() && appDate.getFullYear() === today.getFullYear();
+      return !isNaN(appDate.getTime()) && appDate.getMonth() === today.getMonth() && appDate.getFullYear() === today.getFullYear();
     });
 
     const interestedCustomers = customers.filter(c => c.tags.includes('관심고객'));
@@ -1173,12 +1165,12 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                 subtitle={rec.applicationDate}
                 details={[
                   { icon: <BriefcaseIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: rec.productName },
-                  { icon: <DocumentTextIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: `${rec.premium.toLocaleString()}원` },
+                  { icon: <DocumentTextIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: `${(rec.premium || 0).toLocaleString()}원` },
                 ]}
                 draggable={false}
                 onDragStart={() => {}}
                 onClick={() => {
-                  const customer = customers.find(c => c.name === rec.contractorName);
+                  const customer = customers.find(c => c.name === rec.contractorName && (c.birthday === rec.dob || !rec.dob));
                   if(customer) onSelectCustomer(customer, 'contracts');
                 }}
               />
@@ -1222,6 +1214,175 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
           ))}
         </div>
       </div>
+    </div>
+  );
+
+  const pipelineList = (
+    <div className="animate-fade-in bg-[var(--background-secondary)] rounded-lg border border-[var(--border-color)] overflow-hidden">
+        <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-[var(--border-color)]">
+                <thead className="bg-[var(--background-tertiary)]">
+                    <tr>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider w-20 md:w-24">단계</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider w-[20%] md:w-auto min-w-[80px]">고객명</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider w-[35%] md:w-auto min-w-[120px]">일시 / 장소 (정보1)</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider hidden md:table-cell">메모 (정보2)</th>
+                        <th className="px-4 py-3 text-right text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider w-28 md:w-32">작업</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-color)]">
+                    {/* Interested Customers in List */}
+                    {kanbanData.interestedCustomers.map(customer => (
+                        <tr key={customer.id} className="hover:bg-[var(--background-tertiary)] transition-colors group">
+                            <td className="px-4 py-3">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-100 text-yellow-700 border border-yellow-200">관심고객</span>
+                            </td>
+                            <td className="px-4 py-3">
+                                <button onClick={() => onSelectCustomer(customer)} className="font-bold text-[var(--text-primary)] hover:underline truncate block max-w-full">{customer.name}</button>
+                                <p className="text-[10px] text-[var(--text-muted)] md:hidden">{calculateAge(customer.birthday)}세</p>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">
+                                <div className="flex flex-col">
+                                    <span>{(customer.registrationDate || '').slice(5)} 등록</span>
+                                    <span className="text-[10px] text-[var(--text-muted)] truncate">{customer.homeAddress !== '미확인' ? customer.homeAddress : ''}</span>
+                                </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] hidden md:table-cell">
+                                <p className="truncate max-w-xs" title={customer.notes}>{customer.notes || '-'}</p>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                                <button onClick={() => setInterestedCustomerActionModalState({ isOpen: true, customer })} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-accent)]" title="다음 단계 진행"><CycleIcon className="h-5 w-5"/></button>
+                            </td>
+                        </tr>
+                    ))}
+                    {/* AP Appointments in List */}
+                    {kanbanData.apAppointments.map(app => (
+                        <tr key={app.id} className="hover:bg-[var(--background-tertiary)] transition-colors group">
+                            <td className="px-4 py-3">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-100 text-cyan-700 border border-cyan-200">미팅 (AP)</span>
+                            </td>
+                            <td className="px-4 py-3">
+                                <span className="font-bold text-[var(--text-primary)] truncate block max-w-full">{app.customerName}</span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">
+                                <div className="flex flex-col">
+                                    <span>{(app.date || '').slice(5)} {formatActivityTimeKR(app.time)}</span>
+                                    <span className="text-[10px] text-[var(--text-muted)] truncate max-w-[150px]">{app.location || '-'}</span>
+                                </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] hidden md:table-cell">
+                                <p className="truncate max-w-xs" title={app.notes}>{app.notes || '-'}</p>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-1.5 md:gap-2">
+                                    <button 
+                                        onClick={() => onRequestAppointmentAction(app, 'completed')}
+                                        className="px-2 py-1 text-[10px] md:text-xs font-bold text-green-700 bg-green-100 rounded border border-green-200 hover:bg-green-200 transition-colors"
+                                    >
+                                        완료
+                                    </button>
+                                    <button onClick={() => onEditAppointment(app)} className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-accent)]"><PencilIcon className="h-4 w-4"/></button>
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                    {/* PC Appointments in List */}
+                    {kanbanData.pcAppointments.map(app => (
+                        <tr key={app.id} className="hover:bg-[var(--background-tertiary)] transition-colors group">
+                            <td className="px-4 py-3">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">설계 (PC)</span>
+                            </td>
+                            <td className="px-4 py-3">
+                                <span className="font-bold text-[var(--text-primary)] truncate block max-w-full">{app.customerName}</span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">
+                                <div className="flex flex-col">
+                                    <span>{(app.date || '').slice(5)} {formatActivityTimeKR(app.time)}</span>
+                                    <span className="text-[10px] text-[var(--text-muted)] truncate max-w-[150px]">{app.location || '-'}</span>
+                                </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] hidden md:table-cell">
+                                <p className="truncate max-w-xs" title={app.notes}>{app.notes || '-'}</p>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-1.5 md:gap-2">
+                                    <button 
+                                        onClick={() => onRequestAppointmentAction(app, 'completed')}
+                                        className="px-2 py-1 text-[10px] md:text-xs font-bold text-green-700 bg-green-100 rounded border border-green-200 hover:bg-green-200 transition-colors"
+                                    >
+                                        완료
+                                    </button>
+                                    <button onClick={() => onEditAppointment(app)} className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-accent)]"><PencilIcon className="h-4 w-4"/></button>
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                    {/* Closed Won in List */}
+                    {kanbanData.closedWon.map(record => (
+                        <tr key={record.id} className="hover:bg-[var(--background-tertiary)] transition-colors group bg-green-50/30 dark:bg-green-900/5">
+                            <td className="px-4 py-3">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 border border-green-200">계약완료</span>
+                            </td>
+                            <td className="px-4 py-3">
+                                <button onClick={() => {
+                                    const customer = customers.find(c => c.name === record.contractorName && (c.birthday === record.dob || !record.dob));
+                                    if(customer) onSelectCustomer(customer, 'contracts');
+                                }} className="font-bold text-[var(--text-primary)] hover:underline truncate block max-w-full">{record.contractorName}</button>
+                                <p className="text-[10px] text-[var(--text-muted)] md:hidden">{record.productName}</p>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">
+                                <div className="flex flex-col">
+                                    <span>{(record.applicationDate || '').slice(5)} 체결</span>
+                                    <span className="text-[10px] text-[var(--text-muted)] truncate">{record.insuranceCompany}</span>
+                                </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] hidden md:table-cell">
+                                <p className="truncate max-w-xs" title={`${record.productName} / ${(record.premium || 0).toLocaleString()}원`}>
+                                    {record.productName} / {(record.premium || 0).toLocaleString()}원
+                                </p>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                                <button onClick={() => {
+                                    const customer = customers.find(c => c.name === record.contractorName && (c.birthday === record.dob || !record.dob));
+                                    if(customer) onSelectCustomer(customer, 'contracts');
+                                }} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-accent)]" title="상세보기"><DocumentTextIcon className="h-5 w-5"/></button>
+                            </td>
+                        </tr>
+                    ))}
+                    {/* Rejected Customers in List */}
+                    {kanbanData.rejectedCustomers.map(customer => (
+                        <tr key={customer.id} className="hover:bg-[var(--background-tertiary)] transition-colors group bg-red-50/30 dark:bg-red-900/5">
+                            <td className="px-4 py-3">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">거절</span>
+                            </td>
+                            <td className="px-4 py-3">
+                                <button onClick={() => onSelectCustomer(customer)} className="font-bold text-[var(--text-primary)] hover:underline truncate block max-w-full">{customer.name}</button>
+                                <p className="text-[10px] text-[var(--text-muted)] md:hidden">확률: {customer.recontactProbability}</p>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">
+                                <div className="flex flex-col">
+                                    <span>{(customer.rejectionDate || '').slice(5) || '-'} 거절</span>
+                                    <span className="text-[10px] text-[var(--text-muted)] truncate">사유: {customer.rejectionReason || '미기입'}</span>
+                                </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] hidden md:table-cell">
+                                <p className="truncate max-w-xs" title={customer.rejectionNotes}>
+                                    ({customer.recontactProbability}) {customer.rejectionNotes || '-'}
+                                </p>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                                <button onClick={(e) => { e.stopPropagation(); setEditingRejectedCustomer(customer); setIsEditRejectionModalOpen(true); }} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-accent)]" title="정보 수정"><PencilIcon className="h-5 w-5"/></button>
+                            </td>
+                        </tr>
+                    ))}
+                    {kanbanData.interestedCustomers.length === 0 && kanbanData.apAppointments.length === 0 && kanbanData.pcAppointments.length === 0 && kanbanData.closedWon.length === 0 && kanbanData.rejectedCustomers.length === 0 && (
+                        <tr>
+                            <td colSpan={5} className="px-6 py-20 text-center text-[var(--text-muted)]">진행 중인 활동 파이프라인이 없습니다.</td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
     </div>
   );
 
@@ -1332,7 +1493,30 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
         </div>
       )}
 
-      {activeTab === 'kanban' && kanbanBoard}
+      {activeTab === 'kanban' && (
+          <div className="animate-fade-in flex flex-col space-y-4">
+              <div className="flex justify-between items-center mb-2">
+                  <h2 className="text-2xl font-bold text-[var(--text-primary)]">활동 관리</h2>
+                  <div className="flex items-center p-1 bg-[var(--background-tertiary)] rounded-lg">
+                      <button 
+                          onClick={() => setKanbanViewMode('board')} 
+                          className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${kanbanViewMode === 'board' ? 'bg-[var(--background-secondary)] text-[var(--text-accent)] shadow' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}
+                      >
+                          <ViewColumnsIcon className="h-4 w-4" />
+                          칸반
+                      </button>
+                      <button 
+                          onClick={() => setKanbanViewMode('list')} 
+                          className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${kanbanViewMode === 'list' ? 'bg-[var(--background-secondary)] text-[var(--text-accent)] shadow' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}
+                      >
+                          <ListBulletIcon className="h-4 w-4" />
+                          리스트
+                      </button>
+                  </div>
+              </div>
+              {kanbanViewMode === 'board' ? kanbanBoard : pipelineList}
+          </div>
+      )}
       
       {activeTab === 'contracts' && contractListView}
       {activeTab === 'analysis' && <PerformanceAnalysis records={records} appointments={appointments} customers={customers} onSelectCustomer={(c) => onSelectCustomer(c, 'contracts')} />}

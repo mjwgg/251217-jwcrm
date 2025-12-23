@@ -337,6 +337,7 @@ const ActionToast: React.FC<ActionToastProps> = ({ toast, onUndo, onConfirm, onS
     );
 };
 
+// FIX: Use the correctly passed onUpdate prop instead of undefined handleUpdate.
 const UpdateNotification: React.FC<{ onUpdate: () => void; }> = ({ onUpdate }) => (
     <div 
         className="fixed top-20 right-5 z-[100] flex items-center p-4 mb-4 text-sm rounded-lg shadow-lg animate-fade-in bg-[var(--background-accent)] text-white" 
@@ -344,7 +345,7 @@ const UpdateNotification: React.FC<{ onUpdate: () => void; }> = ({ onUpdate }) =
     >
       <InfoIcon className="h-5 w-5 mr-3" />
       <span className="font-medium mr-4">새로운 버전이 있습니다!</span>
-      <button type="button" className="font-bold underline hover:no-underline" onClick={handleUpdate}>
+      <button type="button" className="font-bold underline hover:no-underline" onClick={onUpdate}>
         업데이트
       </button>
     </div>
@@ -1418,7 +1419,7 @@ const App: React.FC = () => {
             dailyReviews: [] as { review: DailyReview; snippet: string }[],
             todos: [] as { todo: Todo; snippet: string }[],
             quickMemos: [] as { memo: QuickMemo; snippet: string }[],
-            contracts: [] as { customer: Customer; contract: Contract; snippet: string }[],
+            contracts: [] as { customer: Customer, contract: Contract, snippet: string }[],
         };
         const matchedCustomerIds = new Set<string>();
 
@@ -1872,8 +1873,8 @@ const App: React.FC = () => {
                   onDeleteConsultation={deleteConsultation}
                   onDeleteMultipleConsultations={deleteMultipleConsultations}
                   onAddPrediction={addPerformancePrediction}
+                  // FIX: Corrected variable name from updatePrediction to updatePerformancePrediction which matches the destruction from usePerformancePredictions.
                   onUpdatePrediction={updatePerformancePrediction}
-                  // FIX: Pass required onOpenConsultationRecordModal prop to ScheduleCalendar
                   onOpenConsultationRecordModal={handleOpenConsultationRecordModal}
                  />
       case 'touch':
@@ -1929,7 +1930,6 @@ const App: React.FC = () => {
                   onRequestAction={handleRequestAction}
                   onRequestAppointmentAction={handleRequestAppointmentAction}
                   updateCustomerTags={updateCustomerTags}
-                  // FIX: Corrected undefined onSelectCustomer variable to use the intended setter function.
                   onSelectCustomer={(customer, tab) => setSelectedCustomer({ customer, initialTab: tab })}
                   onSetOnAppointmentAddSuccess={handleSetOnAppointmentAddSuccess}
                   onOpenRejectionModal={(customer) => setRejectionModalState({ isOpen: true, customer })}

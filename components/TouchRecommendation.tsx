@@ -432,7 +432,7 @@ export const TouchRecommendation: React.FC<TouchRecommendationProps> = ({
                                     />
                                 </div>
                                 <div className="flex justify-end gap-2">
-                                    <button onClick={cancelPasswordEdit} className="px-3 py-1.5 text-sm bg-[var(--background-secondary)] border border-[var(--border-color-strong)] rounded-md text-[var(--text-secondary)]">취소</button>
+                                    <button onClick={cancelPasswordEdit} className="px-3 py-1.5 text-sm bg-[var(--background-secondary)] border border-[var(--border-color-strong)] rounded-md text-sm font-medium text-[var(--text-secondary)]">취소</button>
                                     <button onClick={confirmRemovePassword} className="px-3 py-1.5 text-sm bg-[var(--background-danger)] text-white rounded-md hover:bg-[var(--background-danger-hover)]">해제 확인</button>
                                 </div>
                             </div>
@@ -474,7 +474,7 @@ export const TouchRecommendation: React.FC<TouchRecommendationProps> = ({
                                     />
                                 </div>
                                 <div className="flex justify-end gap-2">
-                                    <button onClick={cancelPasswordEdit} className="px-3 py-1.5 text-sm bg-[var(--background-secondary)] border border-[var(--border-color-strong)] rounded-md text-[var(--text-secondary)]">취소</button>
+                                    <button onClick={cancelPasswordEdit} className="px-3 py-1.5 text-sm bg-[var(--background-secondary)] border border-[var(--border-color-strong)] rounded-md text-sm font-medium text-[var(--text-secondary)]">취소</button>
                                     <button onClick={savePassword} className="px-3 py-1.5 text-sm bg-[var(--background-accent)] text-white rounded-md">저장</button>
                                 </div>
                             </div>
@@ -604,9 +604,6 @@ export const TouchRecommendation: React.FC<TouchRecommendationProps> = ({
             <div className="bg-[var(--background-secondary)] p-6 rounded-lg shadow-lg border border-[var(--border-color)] mb-8 animate-fade-in-up">
                 <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-4">데이터 및 기타</h2>
                 <div className="flex flex-wrap gap-4">
-                     <button onClick={handleAddressMigration} className="px-4 py-2 bg-[var(--background-tertiary)] text-[var(--text-secondary)] border border-[var(--border-color-strong)] rounded-md hover:bg-[var(--background-primary)] text-sm font-medium">
-                        주소 좌표 변환 (지도 기능용)
-                    </button>
                     <button onClick={onExport} className="px-4 py-2 bg-[var(--background-tertiary)] text-[var(--text-secondary)] border border-[var(--border-color-strong)] rounded-md hover:bg-[var(--background-primary)] text-sm font-medium">
                         전체 데이터 백업 (내보내기)
                     </button>

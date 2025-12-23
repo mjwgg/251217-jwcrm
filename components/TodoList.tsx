@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { Todo } from '../types';
 import { TrashIcon, PlusIcon, CheckIcon, PencilIcon, XIcon } from './icons';
@@ -94,8 +95,8 @@ const TodoList: React.FC<TodoListProps> = ({ todos, onAddTodo, onToggleTodo, onD
     return (
         <div className="h-full flex flex-col">
             {title && (
-              <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-2 md:mb-4 flex items-center shrink-0">
-                  <CheckIcon className="h-5 w-5 md:h-6 md:w-6 mr-2 md:mr-3 text-green-400"/>
+              <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2 md:mb-4 flex items-center shrink-0">
+                  <CheckIcon className="h-5 w-5 mr-2 text-green-400"/>
                   <span className="truncate">{title} ({sortedTodos.length})</span>
               </h2>
             )}
@@ -107,7 +108,7 @@ const TodoList: React.FC<TodoListProps> = ({ todos, onAddTodo, onToggleTodo, onD
                         onChange={(e) => setNewTodoText(e.target.value)}
                         onKeyPress={handleKeyPress}
                         placeholder="새로운 할 일..."
-                        className="w-full p-1.5 text-sm border rounded-md shadow-sm focus:ring-[var(--background-accent)] focus:border-[var(--background-accent)] bg-[var(--background-tertiary)] border-[var(--border-color-strong)] text-[var(--text-primary)]"
+                        className="w-full p-2 text-sm border rounded-md shadow-sm focus:ring-[var(--background-accent)] focus:border-[var(--background-accent)] bg-[var(--background-tertiary)] border-[var(--border-color-strong)] text-[var(--text-primary)]"
                     />
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-1 sm:gap-2">
@@ -116,14 +117,14 @@ const TodoList: React.FC<TodoListProps> = ({ todos, onAddTodo, onToggleTodo, onD
                                     key={p}
                                     type="button"
                                     onClick={() => setSelectedPriority(p)}
-                                    className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 transition-transform transform hover:scale-110 ${selectedPriority === p ? 'ring-2 ring-offset-1 ring-[var(--background-accent)]' : ''} ${priorityMap[p].color}`}
+                                    className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 transition-transform transform hover:scale-110 ${selectedPriority === p ? 'ring-2 ring-offset-1 ring-[var(--background-accent)]' : ''} ${priorityMap[p].color}`}
                                     aria-label={`${priorityMap[p].label} 우선순위`}
                                 ></button>
                              ))}
                         </div>
                         <button
                             onClick={handleAddClick}
-                            className="p-2 bg-[var(--background-accent)] text-[var(--text-on-accent)] rounded-md font-semibold hover:bg-[var(--background-accent-hover)] disabled:opacity-50 flex items-center"
+                            className="p-1.5 bg-[var(--background-accent)] text-[var(--text-on-accent)] rounded-md font-semibold hover:bg-[var(--background-accent-hover)] disabled:opacity-50 flex items-center"
                             disabled={!newTodoText.trim()}
                         >
                             <PlusIcon className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -149,7 +150,7 @@ const TodoList: React.FC<TodoListProps> = ({ todos, onAddTodo, onToggleTodo, onD
                                                 />
                                                 <div className="flex items-center gap-2">
                                                     {(['high', 'medium', 'low'] as const).map(p => (
-                                                        <button key={p} type="button" onClick={() => setEditing({ ...editing, priority: p })} className={`w-5 h-5 rounded-full border-2 ${editing.priority === p ? 'ring-2 ring-offset-1 ring-[var(--background-accent)]' : ''} ${priorityMap[p].color}`} aria-label={`${priorityMap[p].label} 우선순위`}></button>
+                                                        <button key={p} type="button" onClick={() => setEditing({ ...editing, priority: p })} className={`w-4 h-4 rounded-full border-2 ${editing.priority === p ? 'ring-2 ring-offset-1 ring-[var(--background-accent)]' : ''} ${priorityMap[p].color}`} aria-label={`${priorityMap[p].label} 우선순위`}></button>
                                                     ))}
                                                 </div>
                                             </div>
@@ -160,14 +161,14 @@ const TodoList: React.FC<TodoListProps> = ({ todos, onAddTodo, onToggleTodo, onD
                                         </>
                                     ) : (
                                         <>
-                                            <button onClick={() => onToggleTodo(todo.id)} className="flex items-center justify-center h-5 w-5 rounded-full border-2 border-[var(--border-color-strong)] mr-2 shrink-0">
-                                                {todo.completed && <div className="w-3 h-3 bg-[var(--background-accent)] rounded-full"></div>}
+                                            <button onClick={() => onToggleTodo(todo.id)} className="flex items-center justify-center h-4 w-4 rounded-full border-2 border-[var(--border-color-strong)] mr-2 shrink-0">
+                                                {todo.completed && <div className="w-2.5 h-2.5 bg-[var(--background-accent)] rounded-full"></div>}
                                             </button>
                                             <div className="flex-grow">
                                                 <span className={`text-sm ${todo.completed ? 'line-through text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}>{todo.text}</span>
                                                 {showAll && <span className="text-xs text-[var(--text-muted)] ml-2">{todo.date}</span>}
                                             </div>
-                                            <div className={`${priorityMap[todo.priority].color} h-4 w-1.5 rounded-full ml-2 shrink-0`}></div>
+                                            <div className={`${priorityMap[todo.priority].color} h-3.5 w-1 rounded-full ml-2 shrink-0`}></div>
                                             <div className="flex items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button onClick={() => handleStartEdit(todo)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-accent)]"><PencilIcon className="h-4 w-4"/></button>
                                                 <button onClick={() => onDeleteTodo(todo.id)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-danger)]"><TrashIcon className="h-4 w-4"/></button>
@@ -185,7 +186,7 @@ const TodoList: React.FC<TodoListProps> = ({ todos, onAddTodo, onToggleTodo, onD
                     </div>
                  ) : (
                     <div className="flex items-center justify-center h-full">
-                        <p className="text-[var(--text-muted)] text-center text-xs md:text-sm py-4">할 일이 없습니다.</p>
+                        <p className="text-[var(--text-muted)] text-center text-sm py-4">할 일이 없습니다.</p>
                     </div>
                 )}
             </div>

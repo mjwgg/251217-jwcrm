@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Goal } from '../types';
 import { PencilIcon, CheckIcon, PlusIcon, TrashIcon } from './icons';
@@ -28,7 +29,7 @@ const GoalItem: React.FC<{
   onLabelChange: (id: string, newLabel: string) => void;
   availableLabels: string[];
 }> = ({ goal, isEditing, onChange, onDelete, onLabelChange, availableLabels }) => (
-  <div className="flex justify-between items-center text-sm py-1 gap-2">
+  <div className="flex justify-between items-center text-sm py-1.5 gap-2 border-b border-[var(--border-color)]/30 last:border-0">
     {isEditing ? (
       <select
         value={goal.label}
@@ -58,9 +59,9 @@ const GoalItem: React.FC<{
           </button>
         </>
       ) : (
-        <span className="font-semibold text-[var(--text-primary)]">
+        <span className="font-bold text-base text-[var(--text-primary)]">
           {typeof goal.target === 'number' ? Number(goal.target).toLocaleString() : goal.target}
-          {goal.unit && ` ${goal.unit}`}
+          <span className="text-xs font-normal text-[var(--text-muted)] ml-0.5">{goal.unit}</span>
         </span>
       )}
     </div>
@@ -160,25 +161,25 @@ const GoalsTracker: React.FC<GoalsTrackerProps> = ({ goals, onAddGoal, onUpdateG
     };
 
     return (
-        <div className="bg-[var(--background-secondary)] p-6 rounded-lg shadow-lg border border-[var(--border-color)] animate-fade-in-up">
+        <div className="bg-[var(--background-secondary)] p-5 rounded-lg shadow-lg border border-[var(--border-color)] animate-fade-in-up h-full">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-semibold text-[var(--text-primary)]">나의 목표</h2>
+                <h2 className="text-xl font-bold text-[var(--text-primary)]">나의 목표</h2>
                 {isEditing ? (
                     <div className="flex items-center gap-2">
-                        <button onClick={handleCancelClick} className="flex items-center px-3 py-1 bg-[var(--background-tertiary)] text-[var(--text-secondary)] rounded-md text-sm font-medium hover:bg-[var(--background-primary)]">
+                        <button onClick={handleCancelClick} className="flex items-center px-2 py-1 bg-[var(--background-tertiary)] text-[var(--text-secondary)] rounded-md text-sm font-medium hover:bg-[var(--background-primary)]">
                            취소
                         </button>
-                        <button onClick={handleSaveClick} className="flex items-center px-3 py-1 bg-[var(--background-success)] text-white rounded-md text-sm font-medium hover:bg-[var(--background-success-hover)]">
-                            <CheckIcon className="h-4 w-4 mr-1" /> 저장
+                        <button onClick={handleSaveClick} className="flex items-center px-2 py-1 bg-[var(--background-success)] text-white rounded-md text-sm font-medium hover:bg-[var(--background-success-hover)]">
+                            <CheckIcon className="h-3 w-3 mr-1" /> 저장
                         </button>
                     </div>
                 ) : (
-                    <button onClick={() => setIsEditing(true)} className="flex items-center px-3 py-1 bg-[var(--background-tertiary)] text-[var(--text-accent)] rounded-md text-sm font-medium hover:bg-[var(--background-primary)]">
-                        <PencilIcon className="h-4 w-4 mr-1" /> 수정
+                    <button onClick={() => setIsEditing(true)} className="flex items-center px-3 py-1 bg-[var(--background-accent-subtle)] text-[var(--text-accent)] rounded-md text-sm font-medium hover:bg-opacity-80">
+                        <PencilIcon className="h-3.5 w-3.5 mr-1.5" /> 수정
                     </button>
                 )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 flex-1">
                 {(['monthly', 'weekly', 'daily'] as const).map(category => {
                     const existingLabels = new Set((goalsByCategory[category] || []).map(g => g.label));
                     const availableLabelsForCategory = Object.keys(GOAL_DEFINITIONS).filter(
@@ -187,8 +188,8 @@ const GoalsTracker: React.FC<GoalsTrackerProps> = ({ goals, onAddGoal, onUpdateG
 
                     return (
                         <div className="space-y-1" key={category}>
-                            <h3 className="font-bold text-[var(--text-primary)] border-b border-[var(--border-color)] pb-2 mb-2">
-                                { { monthly: '월간 목표', weekly: '주간 목표', daily: '일일 목표' }[category] }
+                            <h3 className="font-bold text-sm text-[var(--text-primary)] border-b border-[var(--border-color)] pb-2 mb-2">
+                                { { monthly: '월간', weekly: '주간', daily: '일일' }[category] }
                             </h3>
                             {(goalsByCategory[category] || []).map(goal => (
                                 <GoalItem 
@@ -203,7 +204,7 @@ const GoalsTracker: React.FC<GoalsTrackerProps> = ({ goals, onAddGoal, onUpdateG
                             ))}
                             {isEditing && (
                                 <button onClick={() => handleAddNewGoal(category)} className="w-full mt-2 flex items-center justify-center gap-1 text-sm text-[var(--text-accent)] hover:text-[var(--text-accent)]/80 p-2 rounded-md bg-[var(--background-accent-subtle)] hover:bg-opacity-70">
-                                    <PlusIcon className="h-4 w-4"/> 목표 추가
+                                    <PlusIcon className="h-3.5 w-3.5"/> 추가
                                 </button>
                             )}
                         </div>
