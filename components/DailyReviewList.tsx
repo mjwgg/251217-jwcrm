@@ -62,7 +62,6 @@ const DailyReviewList: React.FC<DailyReviewListProps> = ({
         });
     }, [sortedReviews, searchTerm, dateFilter]);
     
-    // 날짜별 활동 데이터 집계 및 상세 항목 가져오기
     const getStatsForDate = (date: string) => {
         const records = performanceRecords.filter(r => r.applicationDate === date);
         const apps = appointments.filter(a => a.date === date && a.status === 'completed');
@@ -116,7 +115,6 @@ const DailyReviewList: React.FC<DailyReviewListProps> = ({
 
     return (
         <div className="animate-fade-in space-y-6">
-            {/* Toolbar Area */}
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-[var(--background-secondary)] p-4 rounded-2xl shadow-sm border border-[var(--border-color)]">
                 <div className="flex items-center gap-3 w-full md:w-auto">
                     <div className="flex items-center gap-2 bg-[var(--background-tertiary)] px-3 py-1.5 rounded-lg border border-[var(--border-color-strong)]">
@@ -151,7 +149,6 @@ const DailyReviewList: React.FC<DailyReviewListProps> = ({
                 </div>
             </div>
 
-            {/* Grid Layout */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredReviews.length > 0 ? (
                     filteredReviews.map((review, idx) => {
@@ -169,7 +166,6 @@ const DailyReviewList: React.FC<DailyReviewListProps> = ({
                                 key={review.date} 
                                 className={`relative group flex flex-col h-[320px] rounded-3xl border-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden ${colorClass} ${selectedDates.has(review.date) ? 'ring-2 ring-[var(--background-accent)]' : ''}`}
                             >
-                                {/* Card Header: Date & Selection */}
                                 <div className="p-5 flex justify-between items-start shrink-0">
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-4xl font-black text-[var(--text-primary)]">{day}</span>
@@ -207,8 +203,7 @@ const DailyReviewList: React.FC<DailyReviewListProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Card Body: Content */}
-                                <div className="px-5 flex-1 min-h-0 relative">
+                                <div className="px-5 flex-1 min-h-0 relative mb-4">
                                     {isEditing ? (
                                         <textarea
                                             value={editedContent}
@@ -217,18 +212,21 @@ const DailyReviewList: React.FC<DailyReviewListProps> = ({
                                             autoFocus
                                         />
                                     ) : (
-                                        <div className="h-full overflow-hidden relative">
-                                            <p className="text-sm text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
-                                                {review.content}
-                                            </p>
+                                        <div className="h-full relative">
+                                            {/* 내용 영역 스크롤 적용 */}
+                                            <div className="h-full overflow-y-auto custom-scrollbar pr-1">
+                                                <p className="text-sm text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap pb-6">
+                                                    {review.content}
+                                                </p>
+                                            </div>
+                                            {/* 하단 페이드 아웃 그라데이션 - 스크롤 유도용 */}
                                             {review.content.length > 100 && (
-                                                <div className={`absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white/90 to-transparent group-hover:from-white/40 transition-colors pointer-events-none`}></div>
+                                                <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white/80 via-white/40 to-transparent pointer-events-none rounded-b-2xl"></div>
                                             )}
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Card Footer: Actions */}
                                 <div className="p-4 bg-white/30 backdrop-blur-sm border-t border-black/5 flex justify-between items-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                     {isEditing ? (
                                         <div className="flex w-full gap-2">
@@ -269,7 +267,6 @@ const DailyReviewList: React.FC<DailyReviewListProps> = ({
                 )}
             </div>
 
-            {/* Detail Overview Modal */}
             {detailModal && (
                 <BaseModal 
                     isOpen={detailModal.isOpen} 

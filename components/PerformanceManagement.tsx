@@ -743,11 +743,14 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                       .length;
                   break;
               case '신규 고객 확보':
-                   current = customers.filter(c => {
-                       if (!c.registrationDate) return false;
-                       const [y, m] = c.registrationDate.split('-').map(Number);
+                   // 이번 달에 계약이 발생한 고유 고객 수 계산
+                   const thisMonthRecords = records.filter(r => {
+                       if (!r.applicationDate) return false;
+                       const [y, m] = r.applicationDate.split('-').map(Number);
                        return y === targetYear && m === targetMonth;
-                   }).length;
+                   });
+                   const uniqueContractors = new Set(thisMonthRecords.map(r => `${r.contractorName}-${r.dob}`));
+                   current = uniqueContractors.size;
                    break;
           }
       } else if (goal.category === 'weekly') {
@@ -793,7 +796,7 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
       
       return { ...goal, current, target, percentage };
     });
-  }, [goals, records, currentDate, appointments, customers]);
+  }, [goals, records, currentDate, appointments]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
