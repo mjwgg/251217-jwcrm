@@ -25,7 +25,6 @@ const memoColors = {
 };
 type MemoColor = keyof typeof memoColors;
 
-// 유튜브 프리뷰를 위젯 설정에서 제외하기 위해 WidgetId에서 분리하거나 필터링할 준비
 type WidgetId = 'todaysBriefing' | 'appointments' | 'todos' | 'quickMemo' | 'goals' | 'predictions' | 'calendarWeek' | 'activitySummary' | 'monthlyPerformance' | 'todaysHabits';
 
 interface WidgetLayout {
@@ -117,6 +116,18 @@ interface DashboardProps {
   onOpenConsultationRecordModal: (customerId: string, customerName: string, date: string, meetingType: MeetingType) => void;
   onLogCall: (customer: Customer) => void;
   onUpdateTodo: (id: string, data: { text: string; priority: Todo['priority'] }) => void;
+  quickMemos: QuickMemo[];
+  onAddQuickMemo: (text: string, color: string) => Promise<void>;
+  onUpdateQuickMemo: (memo: QuickMemo) => Promise<void>;
+  onDeleteQuickMemo: (id: string) => Promise<void>;
+  onDeleteMultipleQuickMemos: (ids: string[]) => Promise<void>;
+  onAddGoal: (goal: Omit<Goal, 'id'>) => Promise<void>;
+  onUpdateGoal: (goal: Goal) => Promise<void>;
+  onDeleteGoal: (goalId: string) => Promise<void>;
+  onUpdateCustomer: (customer: Customer) => Promise<void>;
+  onClearMultipleFollowUpDates: (ids: string[]) => Promise<void>;
+  onDeleteMultipleAppointments: (ids: string[]) => Promise<void>;
+  predictions: PerformancePrediction[];
 }
 
 const toLocalISO = (d: Date) => {
@@ -124,7 +135,7 @@ const toLocalISO = (d: Date) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-const formatTimeForDisplay = (timeStr: string): string => {
+const formatTimeForCalendar = (timeStr: string): string => {
     if (!timeStr) return '';
     const [hourStr, minuteStr] = timeStr.split(':');
     const hour = parseInt(hourStr, 10);
@@ -157,7 +168,6 @@ const generateOccurrences = (
         const seriesStartDate = new Date(app.date + 'T00:00:00');
         if (isNaN(seriesStartDate.getTime())) continue;
         const seriesEndDate = app.recurrenceEndDate ? new Date(app.recurrenceEndDate + 'T23:59:59') : null;
-        const interval = app.recurrenceInterval || 1;
         let currentDate = new Date(seriesStartDate.getTime());
         if (currentDate < viewStart) currentDate = new Date(viewStart.getTime());
         let safety = 0;
@@ -215,7 +225,6 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
       if (savedLayout) {
         const parsed = JSON.parse(savedLayout);
         if (Array.isArray(parsed)) {
-          // youtubePreview가 레이아웃에 포함되어 있다면 필터링하여 제외 (고정형으로 변경)
           return (parsed as WidgetLayout[]).filter(w => (w.id as string) !== 'adBanner' && (w.id as string) !== 'youtubePreview');
         }
       }
@@ -354,8 +363,8 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
   }, [appointments, calendar]);
 
   const adBannerElement = (
-    <div className="md:col-span-2 lg:col-span-2">
-        <div className="bg-[var(--background-secondary)] p-0 rounded-lg shadow-lg border border-[var(--border-color)] overflow-hidden h-full min-h-[100px] flex items-center justify-center relative group cursor-pointer animate-fade-in-up" onClick={() => window.location.href='tel:01022163426'}>
+    <div className="md:col-span-2 lg:col-span-2 h-full">
+        <div className="bg-[var(--background-secondary)] p-0 rounded-2xl shadow-lg border border-[var(--border-color)] overflow-hidden h-full min-h-[100px] flex items-center justify-center relative group cursor-pointer animate-fade-in-up" onClick={() => window.location.href='tel:01022163426'}>
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-10 group-hover:opacity-20 transition-opacity"></div>
             <div className="text-center z-10 p-6">
                 <p className="text-[var(--text-accent)] font-bold text-lg mb-2 break-keep">인카금융서비스 제이어스 사업단과<br className="hidden md:block"/> 미래를 함께하실 분을 모십니다</p>
@@ -368,45 +377,37 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
 
   const youtubeWidget = (
     <div className="lg:col-span-3">
-        <div className="bg-[var(--background-secondary)] p-6 rounded-2xl shadow-xl border border-[var(--border-color)] flex flex-col animate-fade-in-up">
-            <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-red-600 fill-current" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
-                </div>
-                <div>
-                    <h2 className="text-xl font-black text-[var(--text-primary)] tracking-tight">천만설계사 유튜브</h2>
-                    <p className="text-xs text-[var(--text-muted)] font-medium">성공하는 영업인을 위한 최고의 인사이트</p>
+        <div className="bg-[#1a1a1a] p-8 rounded-3xl shadow-2xl border border-white/10 flex flex-col md:flex-row items-center gap-8 animate-fade-in-up relative overflow-hidden group">
+            {/* Background Decoration */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-500/5 rounded-full blur-2xl -ml-24 -mb-24"></div>
+
+            <div className="flex-shrink-0 relative">
+                <div className="w-20 h-20 bg-gradient-to-br from-red-600 to-red-800 rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(220,38,38,0.4)] group-hover:scale-110 transition-transform duration-500">
+                    <svg className="w-10 h-10 text-white fill-current" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
                 </div>
             </div>
-            
-            <a 
-                href="https://www.youtube.com/@천만설계사" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="relative w-full aspect-[21/9] md:aspect-[3/1] rounded-2xl overflow-hidden bg-slate-900 group cursor-pointer flex items-center justify-center border border-white/10 shadow-2xl transition-all duration-500 hover:scale-[1.01]"
-            >
-                <div className="absolute inset-0 bg-gradient-to-tr from-red-600 via-red-500 to-rose-700 opacity-90 group-hover:opacity-100 transition-opacity"></div>
-                <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
-                
-                <div className="relative z-10 flex flex-col items-center gap-4 text-center p-6">
-                    <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-xl">
-                        <div className="w-0 h-0 border-t-[10px] border-t-transparent border-l-[18px] border-l-white border-b-[10px] border-b-transparent ml-1"></div>
+
+            <div className="flex-grow text-center md:text-left z-10">
+                <h2 className="text-2xl md:text-3xl font-black text-white tracking-tighter mb-2 italic">천만설계사 유튜브</h2>
+                <p className="text-gray-400 text-sm md:text-base font-medium max-w-lg leading-relaxed">
+                    상위 1% 영업 전문가들의 노하우와 인사이트를 담았습니다.<br className="hidden md:block"/> 매일 새로운 전략으로 당신의 성공을 응원합니다.
+                </p>
+            </div>
+
+            <div className="flex-shrink-0 w-full md:w-auto z-10">
+                <a 
+                    href="https://www.youtube.com/@천만설계사" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white rounded-2xl font-black text-lg shadow-xl hover:shadow-red-600/20 transition-all active:scale-95 group/btn"
+                >
+                    시청하러 가기
+                    <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center group-hover/btn:translate-x-1 transition-transform">
+                        <ChevronRightIcon className="w-4 h-4 text-white" />
                     </div>
-                    <div>
-                        <span className="text-white font-black text-2xl md:text-3xl drop-shadow-lg tracking-tighter">채널 바로가기</span>
-                        <div className="flex items-center justify-center gap-2 mt-1">
-                            <span className="h-px w-8 bg-white/50"></span>
-                            <span className="text-white/80 text-xs font-bold uppercase tracking-widest">Go to Channel</span>
-                            <span className="h-px w-8 bg-white/50"></span>
-                        </div>
-                    </div>
-                </div>
-                
-                {/* Decorative Elements */}
-                <div className="absolute top-4 right-4 text-white/20">
-                    <svg className="w-20 h-20 fill-current rotate-12" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
-                </div>
-            </a>
+                </a>
+            </div>
         </div>
     </div>
   );
@@ -487,13 +488,13 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
 
   const widgetComponents: Record<WidgetId, React.ReactNode> = {
         todaysBriefing: (
-            <div className="bg-[var(--background-secondary)] p-5 rounded-lg shadow-lg border border-[var(--border-color)] flex flex-col animate-fade-in-up h-full">
+            <div className="bg-[var(--background-secondary)] p-5 rounded-2xl shadow-lg border border-[var(--border-color)] flex flex-col animate-fade-in-up h-full">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-bold text-[var(--text-primary)] flex items-center"><LightBulbIcon className="h-5 w-5 mr-2 text-yellow-400"/>오늘의 브리핑</h2>
                     <button onClick={() => setIsRecontactModalOpen(true)} className="px-3 py-1 bg-[var(--background-accent-subtle)] text-[var(--text-accent)] rounded-md text-xs font-medium">관리</button>
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    <div className="border border-[var(--border-color)] rounded-md">
+                    <div className="border border-[var(--border-color)] rounded-xl overflow-hidden">
                         {renderBriefingSection('기한 지남', briefingItems.overdue, 'overdue')}
                         {renderBriefingSection('오늘', briefingItems.today, 'today')}
                         {renderBriefingSection('이번 주', briefingItems.thisWeek, 'thisWeek')}
@@ -503,13 +504,13 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
             </div>
         ),
         todaysHabits: (
-            <div className="bg-[var(--background-secondary)] p-5 rounded-lg shadow-lg border border-[var(--border-color)] h-full flex flex-col animate-fade-in-up">
+            <div className="bg-[var(--background-secondary)] p-5 rounded-2xl shadow-lg border border-[var(--border-color)] h-full flex flex-col animate-fade-in-up">
               <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center"><CheckIcon className="h-5 w-5 mr-2 text-green-400"/>오늘의 습관</h2>
               <div className="flex flex-wrap gap-2">
                 {habits.map(habit => {
                   const isCompleted = completedHabitsToday.has(habit.id);
                   return (
-                    <button key={habit.id} onClick={() => handleToggleHabit(habit.id, isCompleted)} className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${isCompleted ? 'bg-[var(--background-accent-subtle)] border-transparent ring-2 ring-[var(--background-accent)]' : 'bg-[var(--background-tertiary)] border-transparent'}`}>
+                    <button key={habit.id} onClick={() => handleToggleHabit(habit.id, isCompleted)} className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 transition-all ${isCompleted ? 'bg-[var(--background-accent-subtle)] border-transparent ring-2 ring-[var(--background-accent)]' : 'bg-[var(--background-tertiary)] border-transparent'}`}>
                       <div className={`w-4 h-4 rounded-full flex items-center justify-center border-2 transition-colors flex-shrink-0 ${isCompleted ? 'bg-[var(--background-accent)] border-[var(--background-accent)]' : 'border-[var(--border-color-strong)]'}`}>{isCompleted && <CheckIcon className="w-2.5 h-2.5 text-white" />}</div>
                       <span className={`text-sm font-medium ${isCompleted ? 'line-through text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}>{habit.name}</span>
                     </button>
@@ -519,7 +520,7 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
             </div>
         ),
         appointments: (
-            <div className="bg-[var(--background-secondary)] p-5 rounded-lg shadow-lg border border-[var(--border-color)] flex flex-col animate-fade-in-up h-full">
+            <div className="bg-[var(--background-secondary)] p-5 rounded-2xl shadow-lg border border-[var(--border-color)] flex flex-col animate-fade-in-up h-full">
                 <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center justify-between">
                     <div className="flex items-center"><CalendarIcon className="h-5 w-5 mr-2 text-blue-400"/>오늘의 일정</div>
                     <button onClick={() => onOpenAddAppointmentModal(todayStr, '09:00')} className="p-1 text-[var(--text-accent)] hover:bg-[var(--background-accent-subtle)] rounded-full"><PlusIcon className="h-5 w-5"/></button>
@@ -529,9 +530,9 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
                         const colorProps = getAppointmentColorClasses(app);
                         const isCompleted = app.status === 'completed';
                         return (
-                            <div key={app.occurrenceId || app.id} style={colorProps.style} className={`p-3 rounded-md flex justify-between items-center ${colorProps.className || ''} ${isCompleted ? 'opacity-60' : ''}`}>
+                            <div key={app.occurrenceId || app.id} style={colorProps.style} className={`p-3 rounded-xl flex justify-between items-center ${colorProps.className || ''} ${isCompleted ? 'opacity-60' : ''}`}>
                                 <div className="cursor-pointer flex-grow truncate mr-2" onClick={() => onSelectAppointment(app)}>
-                                    <p className={`font-semibold text-base truncate ${isCompleted ? 'line-through' : ''}`}>{formatTimeForDisplay(app.time)} - {app.customerName || app.title}</p>
+                                    <p className={`font-semibold text-base truncate ${isCompleted ? 'line-through' : ''}`}>{formatTimeForCalendar(app.time)} - {app.customerName || app.title}</p>
                                     <div className="flex gap-2 text-sm opacity-80 mt-1 truncate">
                                         {app.location && <span>📍 {app.location}</span>}
                                         {app.meetingType && <span>🏷️ {app.meetingType}</span>}
@@ -539,7 +540,7 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
                                 </div>
                                 <div className="flex items-center gap-1">
                                     {app.status === 'scheduled' && (
-                                        <button onClick={(e) => { e.stopPropagation(); onRequestAppointmentAction(app, 'completed'); }} className="px-2 py-1 text-sm bg-green-200 text-green-800 rounded font-bold hover:bg-green-300">완료</button>
+                                        <button onClick={(e) => { e.stopPropagation(); onRequestAppointmentAction(app, 'completed'); }} className="px-2 py-1 text-sm bg-green-200 text-green-800 rounded-lg font-bold hover:bg-green-300">완료</button>
                                     )}
                                     <button onClick={(e) => { e.stopPropagation(); if(confirm('삭제하시겠습니까?')) onDeleteAppointment(app.id); }} className="p-1 text-[var(--text-muted)] hover:text-red-500"><TrashIcon className="h-3 w-3"/></button>
                                 </div>
@@ -551,12 +552,12 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
             </div>
         ),
         todos: (
-            <div className="bg-[var(--background-secondary)] p-5 rounded-lg shadow-lg border border-[var(--border-color)] flex flex-col animate-fade-in-up h-full">
+            <div className="bg-[var(--background-secondary)] p-5 rounded-2xl shadow-lg border border-[var(--border-color)] flex flex-col animate-fade-in-up h-full">
                 <TodoList todos={todos} onAddTodo={onAddTodo} onToggleTodo={onToggleTodo} onDeleteTodo={onDeleteTodo} onUpdateTodo={onUpdateTodo} maxVisibleItems={5} />
             </div>
         ),
         quickMemo: (
-            <div className="bg-[var(--background-secondary)] p-5 rounded-lg shadow-lg border border-[var(--border-color)] flex flex-col animate-fade-in-up h-full">
+            <div className="bg-[var(--background-secondary)] p-5 rounded-2xl shadow-lg border border-[var(--border-color)] flex flex-col animate-fade-in-up h-full">
                 <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center"><PencilIcon className="h-5 w-5 mr-2 text-purple-400"/>간편 메모</h2>
                 <div className="space-y-3">
                     <textarea
@@ -564,7 +565,7 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
                         onChange={(e) => setNewMemoText(e.target.value)}
                         rows={2}
                         placeholder="빠르게 메모하세요... (#태그 사용 가능)"
-                        className="w-full p-2 border rounded-md bg-[var(--background-tertiary)] border-[var(--border-color-strong)] text-[var(--text-primary)] text-sm"
+                        className="w-full p-2 border rounded-xl bg-[var(--background-tertiary)] border-[var(--border-color-strong)] text-[var(--text-primary)] text-sm"
                     />
                     <div className="flex justify-between items-center">
                         <div className="flex gap-2">
@@ -576,23 +577,21 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
                                 />
                             ))}
                         </div>
-                        <button onClick={() => { if(newMemoText.trim()) { onAddQuickMemo(newMemoText.trim(), newMemoColor).then(() => { setNewMemoText(''); setMemoPage(1); }); } }} className="px-4 py-1.5 bg-[var(--background-accent)] text-white rounded text-xs font-bold">추가</button>
+                        <button onClick={() => { if(newMemoText.trim()) { onAddQuickMemo(newMemoText.trim(), newMemoColor).then(() => { setNewMemoText(''); setMemoPage(1); }); } }} className="px-4 py-1.5 bg-[var(--background-accent)] text-white rounded-lg text-xs font-bold">추가</button>
                     </div>
                 </div>
 
-                {/* Memo Search Bar */}
                 <div className="relative mt-4">
                     <input 
                         type="text" 
                         value={memoSearchTerm}
                         onChange={(e) => { setMemoSearchTerm(e.target.value); setMemoPage(1); }}
                         placeholder="메모 검색..." 
-                        className="w-full pl-9 pr-3 py-2 border border-[var(--border-color-strong)] rounded-md bg-[var(--background-tertiary)] text-[var(--text-primary)] text-sm focus:ring-1 focus:ring-purple-500 outline-none"
+                        className="w-full pl-9 pr-3 py-2 border border-[var(--border-color-strong)] rounded-xl bg-[var(--background-tertiary)] text-[var(--text-primary)] text-sm focus:ring-1 focus:ring-purple-500 outline-none"
                     />
                     <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-[var(--text-muted)]" />
                 </div>
 
-                {/* Memo Tag Filters */}
                 {allMemoTags.length > 0 && (
                     <div className="flex gap-2 overflow-x-auto custom-scrollbar py-2 mt-1">
                         <button onClick={() => { setMemoFilterTag(null); setMemoPage(1); }} className={`px-2 py-1 text-xs rounded-full border whitespace-nowrap ${!memoFilterTag ? 'bg-purple-500 text-white border-transparent' : 'bg-[var(--background-tertiary)] text-[var(--text-secondary)] border-[var(--border-color)]'}`}>전체</button>
@@ -604,7 +603,7 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar mt-3 space-y-2">
                     {paginatedMemos.map(memo => (
-                        <div key={memo.id} className={`p-3 rounded-md border group relative animate-fade-in ${memoColors[memo.color as MemoColor]?.bg || memoColors.default.bg} ${memoColors[memo.color as MemoColor]?.border || memoColors.default.border}`}>
+                        <div key={memo.id} className={`p-3 rounded-xl border group relative animate-fade-in ${memoColors[memo.color as MemoColor]?.bg || memoColors.default.bg} ${memoColors[memo.color as MemoColor]?.border || memoColors.default.border}`}>
                             <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap pr-6">{memo.text}</p>
                             {memo.tags && memo.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-2">
@@ -621,7 +620,6 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
                     {filteredMemos.length === 0 && <p className="text-center text-[var(--text-muted)] py-4 text-sm">검색 결과가 없습니다.</p>}
                 </div>
 
-                {/* Memo Pagination */}
                 {totalMemoPages > 1 && (
                     <div className="flex items-center justify-center gap-4 mt-3 pt-2 border-t border-[var(--border-color)]">
                         <button 
@@ -643,17 +641,18 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
                 )}
             </div>
         ),
-        goals: <GoalsTracker goals={goals} onAddGoal={onAddGoal} onUpdateGoal={onUpdateGoal} onDeleteGoal={onDeleteGoal} />,
+        goals: <div className="h-full"><GoalsTracker goals={goals} onAddGoal={onAddGoal} onUpdateGoal={onUpdateGoal} onDeleteGoal={onDeleteGoal} /></div>,
         predictions: (
-            <div className="bg-[var(--background-secondary)] p-5 rounded-lg shadow-lg border border-[var(--border-color)] flex flex-col animate-fade-in-up h-full">
+            <div className="bg-[var(--background-secondary)] p-5 rounded-2xl shadow-lg border border-[var(--border-color)] flex flex-col animate-fade-in-up h-full">
                 <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center"><SparklesIcon className="h-5 w-5 mr-2 text-amber-400"/>실적 예측</h2>
                 <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
                     {predictions.map(p => (
-                        <div key={p.id} className="p-2.5 bg-[var(--background-tertiary)] border-l-4 border-amber-400 rounded flex justify-between items-center text-sm">
+                        <div key={p.id} className="p-2.5 bg-[var(--background-tertiary)] border-l-4 border-amber-400 rounded-xl flex justify-between items-center text-sm">
                             <span className="font-semibold">{p.customerName}</span>
                             <span className="text-[var(--text-accent)] font-bold">{p.recognizedPerformance.toLocaleString()}원</span>
                         </div>
                     ))}
+                    {predictions.length === 0 && <p className="text-center py-8 text-[var(--text-muted)] text-sm">이번 달 실적 예측이 없습니다.</p>}
                 </div>
             </div>
         ),
@@ -727,22 +726,22 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
                 <BaseModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} className="max-w-md w-full">
                     <div className="p-4 border-b border-[var(--border-color)]"><h2 className="text-xl font-bold">대시보드 편집</h2></div>
                     <div className="p-4 max-h-96 overflow-y-auto custom-scrollbar">
-                        <p className="text-xs text-[var(--text-muted)] mb-3">* 광고 배너와 유튜브 채널 카드는 위치 변경이 불가능합니다.</p>
+                        <p className="text-xs text-[var(--text-muted)] mb-3">* 광고 배너와 유튜브 채널 카드는 고정 항목입니다.</p>
                         <ul className="space-y-2">
                             {layout.map((w, idx) => (
-                                <li key={w.id} draggable onDragStart={e => handleDragStart(e, idx)} onDragOver={handleDragOver} onDrop={() => handleDrop(idx)} className="flex items-center justify-between p-2 bg-[var(--background-tertiary)] rounded-md">
+                                <li key={w.id} draggable onDragStart={e => handleDragStart(e, idx)} onDragOver={handleDragOver} onDrop={() => handleDrop(idx)} className="flex items-center justify-between p-3 bg-[var(--background-tertiary)] rounded-xl border border-[var(--border-color-strong)]">
                                     <div className="flex items-center">
                                         <DragHandleIcon className="h-5 w-5 mr-3 cursor-grab text-[var(--text-muted)]"/>
-                                        <span className="text-sm">{WIDGET_METADATA[w.id].name}</span>
+                                        <span className="text-sm font-medium">{WIDGET_METADATA[w.id].name}</span>
                                     </div>
                                     <button onClick={() => setLayout(layout.map((item, i) => i === idx ? { ...item, visible: !item.visible } : item))}>
-                                        {w.visible ? <EyeIcon className="w-5 h-5"/> : <EyeOffIcon className="h-5 w-5"/>}
+                                        {w.visible ? <EyeIcon className="w-5 h-5 text-[var(--text-accent)]"/> : <EyeOffIcon className="h-5 w-5 text-[var(--text-muted)]"/>}
                                     </button>
                                 </li>
                             ))}
                         </ul>
                     </div>
-                    <div className="p-4 bg-[var(--background-primary)] border-t border-[var(--border-color)]"><button onClick={() => setIsSettingsModalOpen(false)} className="w-full px-4 py-2 bg-[var(--background-accent)] text-white rounded-md">완료</button></div>
+                    <div className="p-4 bg-[var(--background-primary)] border-t border-[var(--border-color)]"><button onClick={() => setIsSettingsModalOpen(false)} className="w-full px-4 py-2 bg-[var(--background-accent)] text-white rounded-lg font-bold">완료</button></div>
                 </BaseModal>
             )}
 

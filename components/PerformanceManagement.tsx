@@ -434,7 +434,7 @@ const formatActivityTimeKR = (timeStr: string): string => {
 
 const KanbanCard: React.FC<KanbanCardProps> = ({ title, subtitle, details, draggable, onDragStart, onClick, actions }) => (
     <div 
-      className={`p-3 bg-[var(--background-tertiary)] rounded-md shadow-sm border border-[var(--border-color-strong)] ${draggable ? 'cursor-grab' : ''}`}
+      className={`p-3 bg-[var(--background-tertiary)] rounded-xl shadow-sm border border-[var(--border-color-strong)] ${draggable ? 'cursor-grab' : ''}`}
       draggable={draggable}
       onDragStart={onDragStart}
     >
@@ -445,8 +445,8 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ title, subtitle, details, dragg
         {subtitle && <p className="text-xs text-[var(--text-muted)] truncate mt-0.5" title={subtitle}>{subtitle}</p>}
         <div className="mt-2 space-y-1">
           {details.map((detail, index) => (
-              <div key={index} className="flex items-center text-sm text-[var(--text-secondary)]">
-                  {detail.icon}
+              <div key={index} className="flex items-center text-xs text-[var(--text-secondary)]">
+                  <span className="flex-shrink-0 mr-1.5">{detail.icon}</span>
                   <div className="truncate">{detail.text}</div>
               </div>
           ))}
@@ -471,20 +471,20 @@ interface ContractListProps {
 
 const ContractList: React.FC<ContractListProps> = ({ contracts, onSelectCustomer, sortConfig, requestSort }) => {
     const SortableHeader: React.FC<{ sortKey: ContractSortKeys; label: string; className?: string }> = ({ sortKey, label, className = '' }) => (
-        <th scope="col" className={`px-2 md:px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider whitespace-nowrap ${className}`}>
+        <th scope="col" className={`px-2 md:px-4 py-3 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider whitespace-nowrap ${className}`}>
             <button className="flex items-center" onClick={() => requestSort(sortKey)}>
                 {label}
                 {sortConfig?.key === sortKey ? (
                     sortConfig.direction === 'ascending' ? <ChevronUpIcon className="h-4 w-4 ml-1" /> : <ChevronDownIcon className="h-4 w-4 ml-1" />
                 ) : (
-                    <div className="h-4 w-4 ml-1 opacity-30 group-hover:opacity-100"><ChevronUpIcon className="h-4 w-4"/></div> // Placeholder for alignment
+                    <div className="h-4 w-4 ml-1 opacity-30 group-hover:opacity-100"><ChevronUpIcon className="h-4 w-4"/></div> 
                 )}
             </button>
         </th>
     );
 
     return (
-        <div className="rounded-lg overflow-hidden border border-[var(--border-color)]">
+        <div className="rounded-xl overflow-hidden border border-[var(--border-color)]">
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-[var(--border-color)]">
                     <thead className="bg-[var(--background-tertiary)] group">
@@ -551,18 +551,24 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
   const [editingPrediction, setEditingPrediction] = useState<PerformancePrediction | null>(null);
   const [isPredictionAiMode, setIsPredictionAiMode] = useState(false);
 
-  const [closingRate, setClosingRate] = useState(70);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // Drag and Drop State
   const [draggedItem, setDraggedItem] = useState<{ item: any; sourceType: string } | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [interestedCustomerActionModalState, setInterestedCustomerActionModalState] = useState<{ isOpen: boolean; customer: Customer | null }>({ isOpen: false, customer: null });
   const [sourceAppointmentForRecord, setSourceAppointmentForRecord] = useState<Appointment | null>(null);
   
   const [isAddInterestedModalOpen, setIsAddInterestedModalOpen] = useState(false);
-  const [selectedInterestedIds, setSelectedInterestedIds] = useState<Set<string>>(new Set());
   
+  // 펼침 상태 관리
+  const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({
+    interested: false,
+    ap: false,
+    pc: false,
+    won: false,
+    rejected: false,
+  });
+
   const [contractFilters, setContractFilters] = useState({
     customerName: '',
     insuranceCompany: '',
@@ -578,96 +584,6 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
 
   const [editingRejectedCustomer, setEditingRejectedCustomer] = useState<Customer | null>(null);
   const [isEditRejectionModalOpen, setIsEditRejectionModalOpen] = useState(false);
-
-  const [recordPromptModalState, setRecordPromptModalState] = useState<{ isOpen: boolean; title: string; prompt: string }>({ isOpen: false, title: '', prompt: '' });
-
-    const handleOpenRecordPrompt = (type: 'ta' | 'ap' | 'pc', item: Customer | Appointment) => {
-    let title = '';
-    let prompt = '';
-
-    if (type === 'ta' && 'contact' in item) {
-      const customer = item as Customer;
-      title = 'TA 기록 프롬프트';
-      prompt = `
-# 고객 정보
-- 이름: ${customer.name}
-- 나이: ${calculateAge(customer.birthday)}세
-- 연락처: ${customer.contact}
-- 직업: ${customer.occupation}
-
-# 통화 목표
-- AP 약속 잡기
-- 고객의 현재 상황 및 니즈 파악 (관심사, 가족관계 등)
-- 신뢰 관계 형성
-
-# 예상 질문 및 답변
-- Q: 어떻게 알고 전화하셨나요? A: (취득 경로: ${customer.acquisitionSource || '미입력'})
-- Q: 지금 바쁜데요. A: "네, 고객님. 바쁘신 와중에 죄송합니다. 1분만 시간 괜찮으실까요?"
-
-# 통화 후 기록할 내용
-- 통화 결과: (미팅 약속 / 거절 / 부재중 / 재통화)
-- 주요 대화 내용 요약:
-- 고객의 반응 및 성향:
-- 다음 Follow-up 일정 및 내용:
-      `.trim();
-    } else if (type === 'ap' && 'meetingType' in item) {
-      const app = item as Appointment;
-      title = 'AP 기록 프롬프트';
-      prompt = `
-# 미팅 정보
-- 고객명: ${app.customerName}
-- 일시: ${app.date} ${app.time}
-- 장소: ${app.location}
-
-# 미팅 목표
-- Rapport 형성 (아이스브레이킹, 공감대 형성)
-- 고객의 재무 목표 및 니즈 심층 파악 (Fact Finding)
-- 회사의 강점 및 나의 전문성 어필
-- 다음 PC 미팅에 대한 기대감 형성 및 약속 잡기
-
-# 준비물 및 체크리스트
-- [ ] 회사 소개 자료
-- [ ] Fact Finding 질문지
-- [ ] 개인 프로필 (PR 자료)
-- [ ] 고객 맞춤형 관심 기사/자료
-
-# 미팅 후 기록할 내용
-- 상담 결과 요약:
-- 파악된 고객 니즈 및 재무 목표:
-- 고객의 주요 반응 및 질문:
-- 다음 PC 미팅 일정 및 준비할 내용:
-      `.trim();
-    } else if (type === 'pc' && 'meetingType' in item) {
-      const app = item as Appointment;
-      title = 'PC 기록 프롬프트';
-      prompt = `
-# 제안 정보
-- 고객명: ${app.customerName}
-- 일시: ${app.date} ${app.time}
-- 장소: ${app.location}
-
-# 제안 목표
-- AP에서 파악된 니즈 기반의 맞춤 솔루션 제시
-- 상품의 핵심 가치와 기대효과 명확히 전달
-- 고객의 예상 질문에 대한 명쾌한 답변 준비
-- 계약 체결 (Closing)
-
-# 제안 내용
-- 제안 상품:
-- 월 보험료:
-- 주요 보장 내용:
-- 상품의 특장점 (고객 니즈 연결):
-
-# 미팅 후 기록할 내용
-- 계약 체결 여부:
-- 고객의 긍정/부정 반응 및 주요 피드백:
-- 계약 체결 시, 추가 안내 사항 및 필요 서류:
-- 계약 미체결 시, 거절 사유 및 Follow-up 전략:
-      `.trim();
-    }
-
-    setRecordPromptModalState({ isOpen: true, title, prompt });
-  };
 
     const handleDragStart = (item: any, sourceType: string) => {
         setDraggedItem({ item, sourceType });
@@ -689,7 +605,6 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
         if (targetStage === 'rejectedCustomers' && (sourceStage === 'apAppointments' || sourceStage === 'pcAppointments')) {
             if (!customer) return;
 
-            // Perform action immediately
             const updatedAppointment = { ...appointment, status: 'completed' as const };
             onUpdateAppointment(updatedAppointment);
             
@@ -698,18 +613,17 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
             const updatedCustomer = { ...customer, tags: newTags };
             onUpdateCustomer(updatedCustomer);
 
-            // Define undo action
             const onUndo = () => {
-                onUpdateAppointment({ ...appointment, status: 'scheduled' }); // Revert status
-                onUpdateCustomer({ ...customer, tags: tagsBefore }); // Revert tags
+                onUpdateAppointment({ ...appointment, status: 'scheduled' }); 
+                onUpdateCustomer({ ...customer, tags: tagsBefore }); 
             };
 
             onRequestAction({
                 message: `${customer.name}님을 거절 고객으로 처리했습니다.`,
                 onUndo: onUndo,
-                onConfirm: () => {}, // No-op on timeout. Action already done.
+                onConfirm: () => {}, 
                 onSecondaryConfirm: () => {
-                    onOpenRejectionModal(updatedCustomer); // Open modal with updated customer
+                    onOpenRejectionModal(updatedCustomer); 
                 },
                 secondaryConfirmLabel: '거절사유 기록'
             });
@@ -786,27 +700,55 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
         setDragOverColumn(null);
         setDraggedItem(null);
     };
+    
+    const toggleStageExpansion = (stage: string) => {
+        setExpandedStages(prev => ({ ...prev, [stage]: !prev[stage] }));
+    };
   
   const goalProgress = useMemo(() => {
+    const targetYear = currentDate.getFullYear();
+    const targetMonth = currentDate.getMonth() + 1;
+
     return goals.map(goal => {
       let current = 0;
       const target = typeof goal.target === 'number' ? goal.target : parseFloat(goal.target) || 0;
 
       if (goal.category === 'monthly') {
-          const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-          const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59);
-
           switch(goal.label) {
-              case '월간 월 보험료':
+              case '월간 인정 실적':
                   current = records
-                      .filter(r => { const d = new Date(r.applicationDate); return d >= startOfMonth && d <= endOfMonth; })
-                      .reduce((sum, r) => sum + r.premium, 0);
+                      .filter(r => { 
+                          if (!r.applicationDate) return false;
+                          const [y, m] = r.applicationDate.split('-').map(Number);
+                          return y === targetYear && m === targetMonth;
+                      })
+                      .reduce((sum, r) => sum + (r.recognizedPerformance || 0), 0);
+                  break;
+              case '월간 보험료':
+                   current = records
+                      .filter(r => { 
+                          if (!r.applicationDate) return false;
+                          const [y, m] = r.applicationDate.split('-').map(Number);
+                          return y === targetYear && m === targetMonth;
+                      })
+                      .reduce((sum, r) => sum + (r.premium || 0), 0);
                   break;
               case '신규 계약 건수':
-                  current = records
-                      .filter(r => { const d = new Date(r.applicationDate); return d >= startOfMonth && d <= endOfMonth; })
+                   current = records
+                      .filter(r => { 
+                          if (!r.applicationDate) return false;
+                          const [y, m] = r.applicationDate.split('-').map(Number);
+                          return y === targetYear && m === targetMonth;
+                      })
                       .length;
                   break;
+              case '신규 고객 확보':
+                   current = customers.filter(c => {
+                       if (!c.registrationDate) return false;
+                       const [y, m] = c.registrationDate.split('-').map(Number);
+                       return y === targetYear && m === targetMonth;
+                   }).length;
+                   break;
           }
       } else if (goal.category === 'weekly') {
           const now = new Date();
@@ -828,7 +770,7 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
               current = appointments
                   .filter(a => {
                       const appDate = new Date(a.date);
-                      return a.status === 'completed' && a.meetingType === meetingType && appDate >= startOfWeek && appDate <= endOfWeek;
+                      return !isNaN(appDate.getTime()) && a.status === 'completed' && a.meetingType === meetingType && appDate >= startOfWeek && appDate <= endOfWeek;
                   })
                   .length;
           }
@@ -851,23 +793,13 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
       
       return { ...goal, current, target, percentage };
     });
-  }, [goals, records, customers, appointments, currentDate]);
+  }, [goals, records, currentDate, appointments, customers]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  const uniqueInsuranceCompanies = useMemo(() => {
-    const companies = new Set<string>();
-    customers.forEach(customer => {
-      customer.contracts?.forEach(contract => {
-        companies.add(contract.insuranceCompany);
-      });
-    });
-    return Array.from(companies).sort();
-  }, [customers]);
 
   const allContracts = useMemo(() => {
     const contractsWithCustomerInfo: (Contract & { customerName: string; customerId: string })[] = [];
@@ -940,17 +872,17 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
   const contractListView = (
     <div className="animate-fade-in">
         <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-4">전체 계약 목록</h2>
-        <div className="bg-[var(--background-secondary)] p-4 rounded-lg shadow-md border border-[var(--border-color)] mb-6">
+        <div className="bg-[var(--background-secondary)] p-4 rounded-2xl shadow-md border border-[var(--border-color)] mb-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-                <input type="text" name="customerName" value={contractFilters.customerName} onChange={handleContractFilterChange} placeholder="계약자명" className="w-full p-2 border border-[var(--border-color-strong)] rounded-md bg-[var(--background-tertiary)]"/>
-                <input type="text" name="productName" value={contractFilters.productName} onChange={handleContractFilterChange} placeholder="상품명" className="w-full p-2 border border-[var(--border-color-strong)] rounded-md bg-[var(--background-tertiary)]"/>
+                <input type="text" name="customerName" value={contractFilters.customerName} onChange={handleContractFilterChange} placeholder="계약자명" className="w-full p-2 border border-[var(--border-color-strong)] rounded-xl bg-[var(--background-tertiary)] text-[var(--text-primary)]"/>
+                <input type="text" name="productName" value={contractFilters.productName} onChange={handleContractFilterChange} placeholder="상품명" className="w-full p-2 border border-[var(--border-color-strong)] rounded-xl bg-[var(--background-tertiary)] text-[var(--text-primary)]"/>
                 <div className="grid grid-cols-2 gap-2">
-                    <input type="date" name="dateStart" value={contractFilters.dateStart} onChange={handleContractFilterChange} className="w-full p-2 border border-[var(--border-color-strong)] rounded-md bg-[var(--background-tertiary)]"/>
-                    <input type="date" name="dateEnd" value={contractFilters.dateEnd} onChange={handleContractFilterChange} className="w-full p-2 border border-[var(--border-color-strong)] rounded-md bg-[var(--background-tertiary)]"/>
+                    <input type="date" name="dateStart" value={contractFilters.dateStart} onChange={handleContractFilterChange} className="w-full p-2 border border-[var(--border-color-strong)] rounded-xl bg-[var(--background-tertiary)] text-[var(--text-primary)]"/>
+                    <input type="date" name="dateEnd" value={contractFilters.dateEnd} onChange={handleContractFilterChange} className="w-full p-2 border border-[var(--border-color-strong)] rounded-xl bg-[var(--background-tertiary)] text-[var(--text-primary)]"/>
                 </div>
             </div>
             <div className="text-right mt-4">
-                <button onClick={resetContractFilters} className="px-4 py-2 bg-[var(--background-tertiary)] text-[var(--text-secondary)] rounded-md text-sm font-medium">필터 초기화</button>
+                <button onClick={resetContractFilters} className="px-4 py-2 bg-[var(--background-tertiary)] text-[var(--text-secondary)] rounded-lg text-sm font-medium">필터 초기화</button>
             </div>
         </div>
         <ContractList 
@@ -985,7 +917,7 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
 
   const handleScheduleFromInterested = useCallback((customer: Customer, meetingType: 'AP' | 'PC') => {
       const today = new Date();
-      today.setDate(today.getDate() + 1); // Default to tomorrow
+      today.setDate(today.getDate() + 1); 
       const tomorrowStr = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 
       onSetOnAppointmentAddSuccess(() => {
@@ -1005,6 +937,7 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
 
   const kanbanData = useMemo(() => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const todayStr = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 
     const apAppointments = appointments.filter(a => a.meetingType === 'AP' && a.status === 'scheduled' && a.date >= todayStr);
@@ -1017,7 +950,6 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
     });
 
     const interestedCustomers = customers.filter(c => c.tags.includes('관심고객'));
-    
     const rejectedCustomers = customers.filter(c => c.tags.includes('거절고객') && c.status !== 'archived');
     
     return { apAppointments, pcAppointments, closedWon, interestedCustomers, rejectedCustomers };
@@ -1027,7 +959,7 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       {/* Interested Customers */}
       <div 
-        className={`p-3 bg-[var(--background-secondary)] rounded-lg border-2 ${dragOverColumn === 'interestedCustomers' ? 'border-[var(--background-accent)]' : 'border-transparent'}`}
+        className={`p-3 bg-[var(--background-secondary)] rounded-2xl border-2 transition-colors ${dragOverColumn === 'interestedCustomers' ? 'border-[var(--background-accent)]' : 'border-transparent'}`}
         onDragOver={(e) => handleDragOver(e, 'interestedCustomers')}
         onDragLeave={handleDragLeave}
         onDrop={() => handleDrop('interestedCustomers')}
@@ -1036,27 +968,21 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
           <h3 className="font-bold text-[var(--text-primary)] flex items-center gap-2">
             <SparklesIcon className="h-5 w-5 text-yellow-400"/>
             <span>관심고객</span>
-            <div className="relative group">
-              <InfoIcon className="h-4 w-4 text-[var(--text-muted)] cursor-pointer" />
-              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-[var(--background-secondary)] text-[var(--text-secondary)] text-xs rounded-md shadow-lg border border-[var(--border-color)] opacity-0 group-hover:opacity-100 transition-opacity scale-0 group-hover:scale-100 origin-bottom pointer-events-none z-10">
-                앞으로 꾸준히 연락하며 관리할 잠재 고객 목록입니다. TA(전화 영업)의 주요 대상이 됩니다.
-              </span>
-            </div>
           </h3>
-          <button onClick={handleOpenAddInterestedModal} className="p-1.5 bg-[var(--background-accent-subtle)] rounded-md hover:bg-opacity-80"><PlusIcon className="h-4 w-4 text-[var(--text-accent)]"/></button>
+          <button onClick={handleOpenAddInterestedModal} className="p-1.5 bg-[var(--background-accent-subtle)] rounded-lg hover:bg-opacity-80"><PlusIcon className="h-4 w-4 text-[var(--text-accent)]"/></button>
         </div>
         <div className="space-y-2">
-          {kanbanData.interestedCustomers.map(customer => (
+          {(expandedStages.interested ? kanbanData.interestedCustomers : kanbanData.interestedCustomers.slice(0, 2)).map(customer => (
               <KanbanCard
                 key={customer.id}
                 title={customer.name}
                 subtitle={`${calculateAge(customer.birthday)}세 / ${customer.occupation}`}
                 details={[
-                  { icon: <PhoneIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: customer.contact },
-                  { icon: <LocationMarkerIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: customer.homeAddress },
-                  { icon: <BriefcaseIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: customer.workAddress },
+                  { icon: <PhoneIcon className="h-3.5 w-3.5 text-gray-400"/>, text: customer.contact },
+                  { icon: <LocationMarkerIcon className="h-3.5 w-3.5 text-gray-400"/>, text: customer.homeAddress },
+                  { icon: <BriefcaseIcon className="h-3.5 w-3.5 text-gray-400"/>, text: customer.workAddress },
                 ]}
-                draggable={false} // This column is for manual actions
+                draggable={false} 
                 onDragStart={() => {}}
                 onClick={() => setInterestedCustomerActionModalState({ isOpen: true, customer })}
                 actions={
@@ -1064,85 +990,97 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                 }
               />
           ))}
+          {kanbanData.interestedCustomers.length > 2 && (
+            <button 
+              onClick={() => toggleStageExpansion('interested')}
+              className="w-full py-2 text-xs font-bold text-[var(--text-accent)] bg-[var(--background-tertiary)] rounded-xl hover:bg-[var(--background-primary)] border border-[var(--border-color-strong)] flex items-center justify-center gap-1"
+            >
+              {expandedStages.interested ? <><ChevronUpIcon className="h-3 w-3"/> 접기</> : <><ChevronDownIcon className="h-3 w-3"/> 더보기 ({kanbanData.interestedCustomers.length - 2})</>}
+            </button>
+          )}
         </div>
       </div>
       {/* AP */}
       <div 
-        className={`p-3 bg-[var(--background-secondary)] rounded-lg border-2 ${dragOverColumn === 'apAppointments' ? 'border-[var(--background-accent)]' : 'border-transparent'}`}
+        className={`p-3 bg-[var(--background-secondary)] rounded-2xl border-2 transition-colors ${dragOverColumn === 'apAppointments' ? 'border-[var(--background-accent)]' : 'border-transparent'}`}
         onDragOver={(e) => handleDragOver(e, 'apAppointments')}
         onDragLeave={handleDragLeave}
         onDrop={() => handleDrop('apAppointments')}
       >
         <h3 className="font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
             <ClipboardIcon className="h-5 w-5 text-cyan-400"/>
-            <span>미팅예정 (AP)</span>
-            <div className="relative group">
-              <InfoIcon className="h-4 w-4 text-[var(--text-muted)] cursor-pointer" />
-              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-[var(--background-secondary)] text-[var(--text-secondary)] text-xs rounded-md shadow-lg border border-[var(--border-color)] opacity-0 group-hover:opacity-100 transition-opacity scale-0 group-hover:scale-100 origin-bottom pointer-events-none z-10">
-                고객과의 첫 만남(초회상담) 약속이 잡힌 상태입니다. 고객의 니즈를 파악하고 신뢰를 쌓는 중요한 단계입니다.
-              </span>
-            </div>
+            <span>미팅 (AP)</span>
         </h3>
         <div className="space-y-2">
-          {kanbanData.apAppointments.map(app => (
+          {(expandedStages.ap ? kanbanData.apAppointments : kanbanData.apAppointments.slice(0, 2)).map(app => (
              <KanbanCard
                 key={app.id}
                 title={app.customerName}
-                subtitle={`${app.date} ${app.time}`}
+                subtitle={`${app.date.slice(5)} ${app.time}`}
                 details={[
-                  { icon: <LocationMarkerIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: app.location },
-                  { icon: <DocumentTextIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: app.notes },
+                  { icon: <LocationMarkerIcon className="h-3.5 w-3.5 text-gray-400"/>, text: app.location },
+                  { icon: <DocumentTextIcon className="h-3.5 w-3.5 text-gray-400"/>, text: app.notes },
                 ]}
                 draggable={true}
                 onDragStart={(e) => handleDragStart(app, 'apAppointments')}
                 onClick={() => onEditAppointment(app)}
                 actions={
-                  <button onClick={(e) => { e.stopPropagation(); onRequestAppointmentAction(app, 'completed'); }} className="px-2 py-1 text-xs font-medium text-green-800 bg-green-200 rounded-md hover:bg-green-300" title="완료 처리">완료</button>
+                  <button onClick={(e) => { e.stopPropagation(); onRequestAppointmentAction(app, 'completed'); }} className="px-2 py-1 text-xs font-bold text-green-700 bg-green-100 rounded-lg border border-green-200 hover:bg-green-200">완료</button>
                 }
               />
           ))}
+          {kanbanData.apAppointments.length > 2 && (
+            <button 
+              onClick={() => toggleStageExpansion('ap')}
+              className="w-full py-2 text-xs font-bold text-[var(--text-accent)] bg-[var(--background-tertiary)] rounded-xl hover:bg-[var(--background-primary)] border border-[var(--border-color-strong)] flex items-center justify-center gap-1"
+            >
+              {expandedStages.ap ? <><ChevronUpIcon className="h-3 w-3"/> 접기</> : <><ChevronDownIcon className="h-3 w-3"/> 더보기 ({kanbanData.apAppointments.length - 2})</>}
+            </button>
+          )}
         </div>
       </div>
       {/* PC */}
        <div 
-        className={`p-3 bg-[var(--background-secondary)] rounded-lg border-2 ${dragOverColumn === 'pcAppointments' ? 'border-[var(--background-accent)]' : 'border-transparent'}`}
+        className={`p-3 bg-[var(--background-secondary)] rounded-2xl border-2 transition-colors ${dragOverColumn === 'pcAppointments' ? 'border-[var(--background-accent)]' : 'border-transparent'}`}
         onDragOver={(e) => handleDragOver(e, 'pcAppointments')}
         onDragLeave={handleDragLeave}
         onDrop={() => handleDrop('pcAppointments')}
       >
         <h3 className="font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
             <CalendarIcon className="h-5 w-5 text-purple-400"/>
-            <span>제안/설계 (PC)</span>
-             <div className="relative group">
-              <InfoIcon className="h-4 w-4 text-[var(--text-muted)] cursor-pointer" />
-              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-[var(--background-secondary)] text-[var(--text-secondary)] text-xs rounded-md shadow-lg border border-[var(--border-color)] opacity-0 group-hover:opacity-100 transition-opacity scale-0 group-hover:scale-100 origin-bottom pointer-events-none z-10">
-                고객에게 맞는 상품을 제안하거나 구체적인 가입 설계를 전달하는 단계입니다. 계약 체결을 목표로 합니다.
-              </span>
-            </div>
+            <span>설계 (PC)</span>
         </h3>
         <div className="space-y-2">
-           {kanbanData.pcAppointments.map(app => (
+           {(expandedStages.pc ? kanbanData.pcAppointments : kanbanData.pcAppointments.slice(0, 2)).map(app => (
               <KanbanCard
                 key={app.id}
                 title={app.customerName}
-                subtitle={`${app.date} ${app.time}`}
+                subtitle={`${app.date.slice(5)} ${app.time}`}
                 details={[
-                  { icon: <LocationMarkerIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: app.location },
-                  { icon: <DocumentTextIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: app.notes },
+                  { icon: <LocationMarkerIcon className="h-3.5 w-3.5 text-gray-400"/>, text: app.location },
+                  { icon: <DocumentTextIcon className="h-3.5 w-3.5 text-gray-400"/>, text: app.notes },
                 ]}
                 draggable={true}
                 onDragStart={(e) => handleDragStart(app, 'pcAppointments')}
                 onClick={() => onEditAppointment(app)}
                 actions={
-                    <button onClick={(e) => { e.stopPropagation(); onRequestAppointmentAction(app, 'completed'); }} className="px-2 py-1 text-xs font-medium text-green-800 bg-green-200 rounded-md hover:bg-green-300" title="완료 처리">완료</button>
+                    <button onClick={(e) => { e.stopPropagation(); onRequestAppointmentAction(app, 'completed'); }} className="px-2 py-1 text-xs font-bold text-green-700 bg-green-100 rounded-lg border border-green-200 hover:bg-green-200">완료</button>
                 }
               />
           ))}
+          {kanbanData.pcAppointments.length > 2 && (
+            <button 
+              onClick={() => toggleStageExpansion('pc')}
+              className="w-full py-2 text-xs font-bold text-[var(--text-accent)] bg-[var(--background-tertiary)] rounded-xl hover:bg-[var(--background-primary)] border border-[var(--border-color-strong)] flex items-center justify-center gap-1"
+            >
+              {expandedStages.pc ? <><ChevronUpIcon className="h-3 w-3"/> 접기</> : <><ChevronDownIcon className="h-3 w-3"/> 더보기 ({kanbanData.pcAppointments.length - 2})</>}
+            </button>
+          )}
         </div>
       </div>
        {/* Closed Won */}
       <div 
-        className={`p-3 bg-[var(--background-secondary)] rounded-lg border-2 ${dragOverColumn === 'closedWon' ? 'border-[var(--background-accent)]' : 'border-transparent'}`}
+        className={`p-3 bg-[var(--background-secondary)] rounded-2xl border-2 transition-colors ${dragOverColumn === 'closedWon' ? 'border-[var(--background-accent)]' : 'border-transparent'}`}
         onDragOver={(e) => handleDragOver(e, 'closedWon')}
         onDragLeave={handleDragLeave}
         onDrop={() => handleDrop('closedWon')}
@@ -1150,36 +1088,38 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
         <h3 className="font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
             <CheckIcon className="h-5 w-5 text-green-400"/>
             <span>계약 완료</span>
-            <div className="relative group">
-              <InfoIcon className="h-4 w-4 text-[var(--text-muted)] cursor-pointer" />
-              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-[var(--background-secondary)] text-[var(--text-secondary)] text-xs rounded-md shadow-lg border border-[var(--border-color)] opacity-0 group-hover:opacity-100 transition-opacity scale-0 group-hover:scale-100 origin-bottom pointer-events-none z-10">
-                고객과의 계약 체결이 성공적으로 완료된 상태입니다. 이번 달 실적으로 집계됩니다.
-              </span>
-            </div>
         </h3>
         <div className="space-y-2">
-           {kanbanData.closedWon.map(rec => (
+           {(expandedStages.won ? kanbanData.closedWon : kanbanData.closedWon.slice(0, 2)).map(rec => (
               <KanbanCard
                 key={rec.id}
                 title={rec.contractorName}
-                subtitle={rec.applicationDate}
+                subtitle={rec.applicationDate.slice(5)}
                 details={[
-                  { icon: <BriefcaseIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: rec.productName },
-                  { icon: <DocumentTextIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: `${(rec.premium || 0).toLocaleString()}원` },
+                  { icon: <BriefcaseIcon className="h-3.5 w-3.5 text-gray-400"/>, text: rec.productName },
+                  { icon: <DocumentTextIcon className="h-3.5 w-3.5 text-gray-400"/>, text: `${(rec.premium || 0).toLocaleString()}원` },
                 ]}
                 draggable={false}
                 onDragStart={() => {}}
                 onClick={() => {
-                  const customer = customers.find(c => c.name === rec.contractorName && (c.birthday === rec.dob || !rec.dob));
+                  const customer = customers.find(c => c.name === rec.contractorName);
                   if(customer) onSelectCustomer(customer, 'contracts');
                 }}
               />
           ))}
+          {kanbanData.closedWon.length > 2 && (
+            <button 
+              onClick={() => toggleStageExpansion('won')}
+              className="w-full py-2 text-xs font-bold text-[var(--text-accent)] bg-[var(--background-tertiary)] rounded-xl hover:bg-[var(--background-primary)] border border-[var(--border-color-strong)] flex items-center justify-center gap-1"
+            >
+              {expandedStages.won ? <><ChevronUpIcon className="h-3 w-3"/> 접기</> : <><ChevronDownIcon className="h-3 w-3"/> 더보기 ({kanbanData.closedWon.length - 2})</>}
+            </button>
+          )}
         </div>
       </div>
       {/* Rejected */}
       <div 
-        className={`p-3 bg-[var(--background-secondary)] rounded-lg border-2 ${dragOverColumn === 'rejectedCustomers' ? 'border-[var(--background-accent)]' : 'border-transparent'}`}
+        className={`p-3 bg-[var(--background-secondary)] rounded-2xl border-2 transition-colors ${dragOverColumn === 'rejectedCustomers' ? 'border-[var(--background-accent)]' : 'border-transparent'}`}
         onDragOver={(e) => handleDragOver(e, 'rejectedCustomers')}
         onDragLeave={handleDragLeave}
         onDrop={() => handleDrop('rejectedCustomers')}
@@ -1187,22 +1127,16 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
         <h3 className="font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
             <XIcon className="h-5 w-5 text-red-400"/>
             <span>거절</span>
-            <div className="relative group">
-              <InfoIcon className="h-4 w-4 text-[var(--text-muted)] cursor-pointer" />
-              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-[var(--background-secondary)] text-[var(--text-secondary)] text-xs rounded-md shadow-lg border border-[var(--border-color)] opacity-0 group-hover:opacity-100 transition-opacity scale-0 group-hover:scale-100 origin-bottom pointer-events-none z-10">
-                고객이 제안을 거절한 상태입니다. 거절 사유를 기록하고, 나중에 다시 연락할지(재접촉 가능성) 판단하여 관리합니다.
-              </span>
-            </div>
         </h3>
          <div className="space-y-2">
-           {kanbanData.rejectedCustomers.map(customer => (
+           {(expandedStages.rejected ? kanbanData.rejectedCustomers : kanbanData.rejectedCustomers.slice(0, 2)).map(customer => (
               <KanbanCard
                 key={customer.id}
                 title={customer.name}
-                subtitle={`거절일: ${customer.rejectionDate || '미지정'}`}
+                subtitle={`거절일: ${customer.rejectionDate?.slice(5) || '미지정'}`}
                 details={[
-                  { icon: <DocumentTextIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: `사유: ${customer.rejectionReason || '미입력'}`},
-                  { icon: <CycleIcon className="h-3 w-3 mr-1.5 text-gray-400"/>, text: `재접촉 확률: ${customer.recontactProbability || '미입력'}`},
+                  { icon: <DocumentTextIcon className="h-3.5 w-3.5 text-gray-400"/>, text: `사유: ${customer.rejectionReason || '미입력'}`},
+                  { icon: <CycleIcon className="h-3.5 w-3.5 text-gray-400"/>, text: `재접촉: ${customer.recontactProbability || '미입력'}`},
                 ]}
                 draggable={false}
                 onDragStart={() => {}}
@@ -1212,22 +1146,30 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                 }
               />
           ))}
+          {kanbanData.rejectedCustomers.length > 2 && (
+            <button 
+              onClick={() => toggleStageExpansion('rejected')}
+              className="w-full py-2 text-xs font-bold text-[var(--text-accent)] bg-[var(--background-tertiary)] rounded-xl hover:bg-[var(--background-primary)] border border-[var(--border-color-strong)] flex items-center justify-center gap-1"
+            >
+              {expandedStages.rejected ? <><ChevronUpIcon className="h-3 w-3"/> 접기</> : <><ChevronDownIcon className="h-3 w-3"/> 더보기 ({kanbanData.rejectedCustomers.length - 2})</>}
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 
   const pipelineList = (
-    <div className="animate-fade-in bg-[var(--background-secondary)] rounded-lg border border-[var(--border-color)] overflow-hidden">
-        <div className="overflow-x-auto">
+    <div className="animate-fade-in bg-[var(--background-secondary)] rounded-2xl border border-[var(--border-color)] overflow-hidden shadow-md">
+        <div className="overflow-x-auto relative">
             <table className="min-w-full divide-y divide-[var(--border-color)]">
                 <thead className="bg-[var(--background-tertiary)]">
                     <tr>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider w-20 md:w-24">단계</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider w-[20%] md:w-auto min-w-[80px]">고객명</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider w-[35%] md:w-auto min-w-[120px]">일시 / 장소 (정보1)</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider hidden md:table-cell">메모 (정보2)</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider w-28 md:w-32">작업</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider w-24">단계</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">고객명</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">정보 1</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">정보 2 (메모/상품)</th>
+                        <th className="px-4 py-3 text-right text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider w-24 sticky right-0 bg-[var(--background-tertiary)] z-10 shadow-[-1px_0_0_var(--border-color)]">작업</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-color)]">
@@ -1239,7 +1181,6 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                             </td>
                             <td className="px-4 py-3">
                                 <button onClick={() => onSelectCustomer(customer)} className="font-bold text-[var(--text-primary)] hover:underline truncate block max-w-full">{customer.name}</button>
-                                <p className="text-[10px] text-[var(--text-muted)] md:hidden">{calculateAge(customer.birthday)}세</p>
                             </td>
                             <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">
                                 <div className="flex flex-col">
@@ -1247,10 +1188,10 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                                     <span className="text-[10px] text-[var(--text-muted)] truncate">{customer.homeAddress !== '미확인' ? customer.homeAddress : ''}</span>
                                 </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] hidden md:table-cell">
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">
                                 <p className="truncate max-w-xs" title={customer.notes}>{customer.notes || '-'}</p>
                             </td>
-                            <td className="px-4 py-3 text-right">
+                            <td className="px-4 py-3 text-right sticky right-0 bg-[var(--background-secondary)] group-hover:bg-[var(--background-tertiary)] z-10 shadow-[-1px_0_0_var(--border-color)]">
                                 <button onClick={() => setInterestedCustomerActionModalState({ isOpen: true, customer })} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-accent)]" title="다음 단계 진행"><CycleIcon className="h-5 w-5"/></button>
                             </td>
                         </tr>
@@ -1270,14 +1211,14 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                                     <span className="text-[10px] text-[var(--text-muted)] truncate max-w-[150px]">{app.location || '-'}</span>
                                 </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] hidden md:table-cell">
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">
                                 <p className="truncate max-w-xs" title={app.notes}>{app.notes || '-'}</p>
                             </td>
-                            <td className="px-4 py-3 text-right">
+                            <td className="px-4 py-3 text-right sticky right-0 bg-[var(--background-secondary)] group-hover:bg-[var(--background-tertiary)] z-10 shadow-[-1px_0_0_var(--border-color)]">
                                 <div className="flex items-center justify-end gap-1.5 md:gap-2">
                                     <button 
                                         onClick={() => onRequestAppointmentAction(app, 'completed')}
-                                        className="px-2 py-1 text-[10px] md:text-xs font-bold text-green-700 bg-green-100 rounded border border-green-200 hover:bg-green-200 transition-colors"
+                                        className="px-2 py-1 text-[10px] md:text-xs font-bold text-green-700 bg-green-100 rounded-lg border border-green-200 hover:bg-green-200 transition-colors"
                                     >
                                         완료
                                     </button>
@@ -1301,14 +1242,14 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                                     <span className="text-[10px] text-[var(--text-muted)] truncate max-w-[150px]">{app.location || '-'}</span>
                                 </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] hidden md:table-cell">
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">
                                 <p className="truncate max-w-xs" title={app.notes}>{app.notes || '-'}</p>
                             </td>
-                            <td className="px-4 py-3 text-right">
+                            <td className="px-4 py-3 text-right sticky right-0 bg-[var(--background-secondary)] group-hover:bg-[var(--background-tertiary)] z-10 shadow-[-1px_0_0_var(--border-color)]">
                                 <div className="flex items-center justify-end gap-1.5 md:gap-2">
                                     <button 
                                         onClick={() => onRequestAppointmentAction(app, 'completed')}
-                                        className="px-2 py-1 text-[10px] md:text-xs font-bold text-green-700 bg-green-100 rounded border border-green-200 hover:bg-green-200 transition-colors"
+                                        className="px-2 py-1 text-[10px] md:text-xs font-bold text-green-700 bg-green-100 rounded-lg border border-green-200 hover:bg-green-200 transition-colors"
                                     >
                                         완료
                                     </button>
@@ -1328,7 +1269,6 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                                     const customer = customers.find(c => c.name === record.contractorName && (c.birthday === record.dob || !record.dob));
                                     if(customer) onSelectCustomer(customer, 'contracts');
                                 }} className="font-bold text-[var(--text-primary)] hover:underline truncate block max-w-full">{record.contractorName}</button>
-                                <p className="text-[10px] text-[var(--text-muted)] md:hidden">{record.productName}</p>
                             </td>
                             <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">
                                 <div className="flex flex-col">
@@ -1336,12 +1276,12 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                                     <span className="text-[10px] text-[var(--text-muted)] truncate">{record.insuranceCompany}</span>
                                 </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] hidden md:table-cell">
-                                <p className="truncate max-w-xs" title={`${record.productName} / ${(record.premium || 0).toLocaleString()}원`}>
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">
+                                <p className="truncate max-w-xs font-semibold text-green-600" title={`${record.productName} / ${(record.premium || 0).toLocaleString()}원`}>
                                     {record.productName} / {(record.premium || 0).toLocaleString()}원
                                 </p>
                             </td>
-                            <td className="px-4 py-3 text-right">
+                            <td className="px-4 py-3 text-right sticky right-0 bg-[var(--background-secondary)] group-hover:bg-[var(--background-tertiary)] z-10 shadow-[-1px_0_0_var(--border-color)]">
                                 <button onClick={() => {
                                     const customer = customers.find(c => c.name === record.contractorName && (c.birthday === record.dob || !record.dob));
                                     if(customer) onSelectCustomer(customer, 'contracts');
@@ -1357,7 +1297,6 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                             </td>
                             <td className="px-4 py-3">
                                 <button onClick={() => onSelectCustomer(customer)} className="font-bold text-[var(--text-primary)] hover:underline truncate block max-w-full">{customer.name}</button>
-                                <p className="text-[10px] text-[var(--text-muted)] md:hidden">확률: {customer.recontactProbability}</p>
                             </td>
                             <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">
                                 <div className="flex flex-col">
@@ -1365,12 +1304,12 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                                     <span className="text-[10px] text-[var(--text-muted)] truncate">사유: {customer.rejectionReason || '미기입'}</span>
                                 </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)] hidden md:table-cell">
-                                <p className="truncate max-w-xs" title={customer.rejectionNotes}>
+                            <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">
+                                <p className="truncate max-w-xs italic text-[var(--text-muted)]" title={customer.rejectionNotes}>
                                     ({customer.recontactProbability}) {customer.rejectionNotes || '-'}
                                 </p>
                             </td>
-                            <td className="px-4 py-3 text-right">
+                            <td className="px-4 py-3 text-right sticky right-0 bg-[var(--background-secondary)] group-hover:bg-[var(--background-tertiary)] z-10 shadow-[-1px_0_0_var(--border-color)]">
                                 <button onClick={(e) => { e.stopPropagation(); setEditingRejectedCustomer(customer); setIsEditRejectionModalOpen(true); }} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-accent)]" title="정보 수정"><PencilIcon className="h-5 w-5"/></button>
                             </td>
                         </tr>
@@ -1420,34 +1359,31 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                             <PlusIcon className="h-4 w-4" /> 실적 추가
                         </button>
                     </div>
-                    <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2 rounded-lg border border-[var(--border-color)]">
+                    <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2 rounded-2xl border border-[var(--border-color)]">
                         <table className="min-w-full divide-y divide-[var(--border-color)]">
                             <thead className="bg-[var(--background-tertiary)] sticky top-0">
                                 <tr>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">계약자</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">생년월일</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">청약일</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">보험료</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">보험사/상품명</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">인정실적</th>
-                                    <th className="px-4 py-2 text-right text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">작업</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">계약자</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">청약일</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">보험료</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">상품명</th>
+                                    <th className="px-4 py-2 text-right text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">작업</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-[var(--background-secondary)] divide-y divide-[var(--border-color)]">
                                 {records.map(r => (
                                     <tr key={r.id}>
                                         <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-[var(--text-primary)]">{r.contractorName}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--text-secondary)]">{r.dob}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--text-secondary)]">{r.applicationDate}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--text-secondary)]">{(r.premium || 0).toLocaleString()}원</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--text-secondary)]">{r.insuranceCompany} / {r.productName}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--text-secondary)] font-semibold">{(r.recognizedPerformance || 0).toLocaleString()}원</td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--text-secondary)]">{(r.applicationDate || '').slice(2)}</td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--text-secondary)] font-bold text-green-600">{(r.premium || 0).toLocaleString()}원</td>
+                                        <td className="px-4 py-2 text-sm text-[var(--text-secondary)] truncate max-w-[120px]" title={r.productName}>{r.productName}</td>
                                         <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
                                             <button onClick={() => handleOpenRecordModal(r)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-accent)]"><PencilIcon className="h-4 w-4" /></button>
                                             <button onClick={() => onDelete(r.id)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-danger)]"><TrashIcon className="h-4 w-4" /></button>
                                         </td>
                                     </tr>
                                 ))}
+                                {records.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-[var(--text-muted)] text-sm">기록된 실적이 없습니다.</td></tr>}
                             </tbody>
                         </table>
                     </div>
@@ -1459,32 +1395,29 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
                             <PlusIcon className="h-4 w-4" /> 예측 추가
                         </button>
                     </div>
-                    <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2 rounded-lg border border-[var(--border-color)]">
+                    <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2 rounded-2xl border border-[var(--border-color)]">
                         <table className="min-w-full divide-y divide-[var(--border-color)]">
                             <thead className="bg-[var(--background-tertiary)] sticky top-0">
                                 <tr>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">고객명</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">PC일정</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">상품명</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">예상 보험료</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">예상 인정실적</th>
-                                    <th className="px-4 py-2 text-right text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">작업</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">고객명</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">PC일정</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">예상 보험료</th>
+                                    <th className="px-4 py-2 text-right text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">작업</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-[var(--background-secondary)] divide-y divide-[var(--border-color)]">
                                 {predictions.map(p => (
                                     <tr key={p.id}>
                                         <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-[var(--text-primary)]">{p.customerName}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--text-secondary)]">{p.pcDate}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--text-secondary)]">{p.productName}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--text-secondary)]">{(p.premium || 0).toLocaleString()}원</td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--text-secondary)] font-semibold">{(p.recognizedPerformance || 0).toLocaleString()}원</td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--text-secondary)]">{(p.pcDate || '').slice(5)}</td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-[var(--text-secondary)] font-bold text-amber-600">{(p.premium || 0).toLocaleString()}원</td>
                                         <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
                                             <button onClick={() => handleOpenPredictionModal(p)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-accent)]"><PencilIcon className="h-4 w-4" /></button>
                                             <button onClick={() => onDeletePrediction(p.id)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-danger)]"><TrashIcon className="h-4 w-4" /></button>
                                         </td>
                                     </tr>
                                 ))}
+                                {predictions.length === 0 && <tr><td colSpan={4} className="py-10 text-center text-[var(--text-muted)] text-sm">예측된 실적이 없습니다.</td></tr>}
                             </tbody>
                         </table>
                     </div>
@@ -1497,20 +1430,20 @@ export const PerformanceManagement: React.FC<PerformanceManagementProps> = ({
           <div className="animate-fade-in flex flex-col space-y-4">
               <div className="flex justify-between items-center mb-2">
                   <h2 className="text-2xl font-bold text-[var(--text-primary)]">활동 관리</h2>
-                  <div className="flex items-center p-1 bg-[var(--background-tertiary)] rounded-lg">
+                  <div className="flex items-center p-1 bg-[var(--background-tertiary)] rounded-xl border border-[var(--border-color-strong)]">
                       <button 
                           onClick={() => setKanbanViewMode('board')} 
-                          className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${kanbanViewMode === 'board' ? 'bg-[var(--background-secondary)] text-[var(--text-accent)] shadow' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}
+                          className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1.5 ${kanbanViewMode === 'board' ? 'bg-[var(--background-secondary)] text-[var(--text-accent)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}
                       >
                           <ViewColumnsIcon className="h-4 w-4" />
-                          칸반
+                          칸반 보드
                       </button>
                       <button 
                           onClick={() => setKanbanViewMode('list')} 
-                          className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${kanbanViewMode === 'list' ? 'bg-[var(--background-secondary)] text-[var(--text-accent)] shadow' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}
+                          className={`px-4 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1.5 ${kanbanViewMode === 'list' ? 'bg-[var(--background-secondary)] text-[var(--text-accent)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}
                       >
                           <ListBulletIcon className="h-4 w-4" />
-                          리스트
+                          리스트 보기
                       </button>
                   </div>
               </div>

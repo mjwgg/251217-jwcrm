@@ -1,8 +1,9 @@
-const CACHE_NAME = 'ai-crm-cache-v12';
+
+const CACHE_NAME = 'ai-crm-cache-v14'; // v13 -> v14 업데이트
 const urlsToCache = [
   '/',
   '/index.html',
-  '/index.tsx?v=4.3.9',
+  '/index.tsx?v=4.4.2', // 쿼리 파라미터 업데이트
   '/icon.svg'
 ];
 
@@ -25,8 +26,6 @@ self.addEventListener('message', event => {
 self.addEventListener('fetch', event => {
   event.respondWith(
     fetch(event.request).then(networkResponse => {
-      // Network request was successful.
-      // Clone the response, cache it, and return it.
       return caches.open(CACHE_NAME).then(cache => {
         if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
           cache.put(event.request, networkResponse.clone());
@@ -34,8 +33,6 @@ self.addEventListener('fetch', event => {
         return networkResponse;
       });
     }).catch(() => {
-      // Network request failed.
-      // Try to serve from cache as a fallback.
       return caches.match(event.request);
     })
   );
@@ -51,12 +48,11 @@ self.addEventListener('activate', event => {
             return caches.delete(cacheName);
           }
         })
-      ).then(() => self.clients.claim()); // Take control of open pages
+      ).then(() => self.clients.claim());
     })
   );
 });
 
-// Add Push Notification Logic
 self.addEventListener('push', event => {
   const data = event.data?.json() ?? {
     title: "AI CRM 알림",

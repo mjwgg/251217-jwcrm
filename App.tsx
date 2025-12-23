@@ -1,6 +1,8 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { AppView, Customer, Appointment, Product, CallResult, Todo, Consultation, MeetingType, SearchFilters, CustomerTypeDefinition, RecurrenceSettings, PerformanceRecord, PerformancePrediction, ProfileInfo, Goal, Script, QuickMemo, FavoriteGreeting, AIExtractedProspectWithDetails, Contract, MessageTemplate, RejectionReason, RecontactProbability, DailyReview, Habit, HabitLog, CallRecord, CustomerType, GoalBoard } from './types';
+// Add callResultLabels import
+import { callResultLabels } from './types';
 import { DashboardIcon, UsersIcon, PhoneIcon, CalendarIcon, XIcon, MessageIcon, CheckIcon, ChartBarIcon, DocumentTextIcon, PencilIcon, TrashIcon, SearchIcon, UserAddIcon, SparklesIcon, CalendarPlusIcon, DownloadIcon, UploadCloudIcon, InfoIcon, MicIcon, BriefcaseIcon, ChevronLeftIcon, ChevronRightIcon } from './components/icons';
 import { Dashboard } from './components/Dashboard';
 import { CustomerList } from './components/CustomerList';
@@ -14,13 +16,11 @@ import AppointmentReviewModal from './components/AppointmentReviewModal';
 import { TouchRecommendation } from './components/TouchRecommendation';
 import { AppointmentDetailModal } from './components/AppointmentDetailModal';
 import { PerformanceManagement } from './components/PerformanceManagement';
-import { useCustomers, useAppointments, useScripts, useTodos, useDailyReviews, useGoals, useProducts, useCustomerTypes, usePerformanceRecords, usePerformancePredictions, useProfileInfo, useQuickMemos, useFavoriteGreetings, useMessageTemplates, useHabits, useGoalBoards } from './hooks/useData';
+import { useCustomers, useAppointments, useScripts, useTodos, useDailyReviews, useGoals, useProducts, useCustomerTypes, usePerformanceRecords, usePerformancePredictions, useProfileInfo, useQuickMemos, useFavoriteGreetings, useMessageTemplates, useHabits, useGoalBoards, useLunarCalendar } from './hooks/useData';
 import { importData, exportData, db } from './services/db';
 import { getItem } from './services/storageService';
 import Spinner from './components/ui/Spinner';
 import LogCallResultModal from './components/LogCallResultModal';
-import { transcribeAudio } from './services/geminiService';
-import { callResultLabels } from './types';
 import ConsultationList from './components/ConsultationList';
 import GlobalSearchBar from './components/GlobalSearchBar';
 import SearchResultsModal from './components/SearchResultsModal';
@@ -32,7 +32,6 @@ import ConfirmationModal from './components/ui/ConfirmationModal';
 import PasswordLock from './components/ui/PasswordLock';
 import TagManagementModal from './components/TagManagementModal';
 import UsageGuideModal from './components/UsageGuideModal';
-import AddPerformanceRecordModal from './components/AddPerformanceRecordModal';
 import PcCompletionWizardModal from './components/PcCompletionWizardModal';
 import ApCompletionWizardModal from './components/ApCompletionWizardModal';
 import NearbyCustomersModal from './components/NearbyCustomersModal';
@@ -40,12 +39,21 @@ import GoalBoardModal from './components/GoalBoardModal';
 import ConsultationRecordModal from './components/ConsultationRecordModal';
 import type { ConsultationRecordData } from './components/ConsultationRecordModal';
 
+// Add ToastData interface
+interface ToastData {
+  message: string;
+  confirmLabel?: string;
+  secondaryConfirmLabel?: string;
+  onConfirm: (isButtonClick: boolean) => void;
+  onSecondaryConfirm?: () => void;
+  onUndo?: () => void;
+}
+
 interface ConsultationData {
     consultation: Omit<Consultation, 'date' | 'id'>;
     date: string;
 }
 
-// --- EditConsultationModal Component ---
 interface EditConsultationModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -54,16 +62,6 @@ interface EditConsultationModalProps {
     customerName: string;
     meetingTypeOptions: string[];
 }
-
-const fileToBase64 = (file: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = error => reject(error);
-    });
-};
-
 
 const EditConsultationModal: React.FC<EditConsultationModalProps> = ({ isOpen, onClose, onSave, consultation, customerName, meetingTypeOptions }) => {
     const [editedData, setEditedData] = useState<Consultation | null>(consultation);
@@ -120,7 +118,6 @@ const EditConsultationModal: React.FC<EditConsultationModalProps> = ({ isOpen, o
     );
 };
 
-// --- ImportPreviewModal Component ---
 interface ImportPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -197,7 +194,6 @@ const MigrationProgressModal: React.FC<{ isOpen: boolean; current: number; total
     );
 };
 
-// --- RejectionReasonModal ---
 interface RejectionReasonModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -293,7 +289,6 @@ const Notification: React.FC<{ message: string; type: 'success' | 'error'; onClo
   );
 };
 
-// --- Action Toast Component for Undo ---
 interface ActionToastProps {
     toast: {
       message: string;
@@ -337,7 +332,6 @@ const ActionToast: React.FC<ActionToastProps> = ({ toast, onUndo, onConfirm, onS
     );
 };
 
-// FIX: Use the correctly passed onUpdate prop instead of undefined handleUpdate.
 const UpdateNotification: React.FC<{ onUpdate: () => void; }> = ({ onUpdate }) => (
     <div 
         className="fixed top-20 right-5 z-[100] flex items-center p-4 mb-4 text-sm rounded-lg shadow-lg animate-fade-in bg-[var(--background-accent)] text-white" 
@@ -370,7 +364,7 @@ const SelectCustomerForContractModal: React.FC<SelectCustomerForContractModalPro
       </div>
       <div className="p-6 space-y-4">
         <p className="text-[var(--text-secondary)]">'{record.contractorName}' 이름의 고객이 여러 명 있습니다. 어떤 고객의 정보에 실적을 추가하시겠습니까?</p>
-        <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+        <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar border border-[var(--border-color)] rounded-lg p-2">
           {matchingCustomers.map(customer => (
             <div key={customer.id} onClick={() => onSelect(customer.id)} className="p-3 border border-[var(--border-color)] rounded-lg hover:bg-[var(--background-tertiary)] cursor-pointer">
               <p className="font-bold text-[var(--text-primary)]">{customer.name}</p>
@@ -416,8 +410,6 @@ const App: React.FC = () => {
   const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const [isUnlocked, setIsUnlocked] = useState(() => {
-    // Check local storage to see if lock is explicitly enabled.
-    // If not enabled (null or 'false'), default to unlocked.
     return localStorage.getItem('app_lock_enabled') !== 'true';
   });
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
@@ -430,21 +422,9 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    const handleMeetingTypesUpdate = () => {
-        const stored = getItem<string[]>('customer_meeting_types');
-        if (stored) {
-            setCustomerMeetingTypes(stored);
-        }
-    };
-
-    window.addEventListener('meeting-types-updated', handleMeetingTypesUpdate);
-    return () => window.removeEventListener('meeting-types-updated', handleMeetingTypesUpdate);
-  }, []);
-
-  useEffect(() => {
     if ('serviceWorker' in navigator) {
       const registerServiceWorker = () => {
-        const swUrl = `${window.location.origin}/sw.js?v=4.3.9`;
+        const swUrl = `${window.location.origin}/sw.js?v=4.4.2`; // 버전 업데이트
         navigator.serviceWorker.register(swUrl).then(registration => {
           registration.onupdatefound = () => {
             const newWorker = registration.installing;
@@ -479,7 +459,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Show guide on first load if unlocked by default
   useEffect(() => {
       if (isUnlocked) {
           const guideSeen = localStorage.getItem(APP_GUIDE_SEEN_KEY);
@@ -504,7 +483,6 @@ const App: React.FC = () => {
       setIsGuideModalOpen(false);
   };
 
-
   const handleUpdate = () => {
     if (waitingWorker) {
       waitingWorker.postMessage({ type: 'SKIP_WAITING' });
@@ -512,11 +490,10 @@ const App: React.FC = () => {
     }
   };
 
-
-  // TA Calling List State
   const [callingListCustomerIds, setCallingListCustomerIds] = useState<string[] | null>(null);
   const [completedInCallingList, setCompletedInCallingList] = useState<Set<string>>(new Set());
   const [appIsLoading, setAppIsLoading] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
   const [newContractSeed, setNewContractSeed] = useState<{ customerId: string; contractData: Partial<Contract> } | null>(null);
 
@@ -581,10 +558,6 @@ const App: React.FC = () => {
   const isLoading = customersLoading || appointmentsLoading || todosLoading || productsLoading || customerTypesLoading || performanceLoading || predictionsLoading || memosLoading || appIsLoading || templatesLoading || habitsLoading || goalBoardsLoading;
   
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
-  const [isAnalyzingAppointment, setIsAnalyzingAppointment] = useState(false);
-  
-  // Search State
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<{ 
     customers: { customer: Customer; snippet: string }[],
@@ -622,37 +595,13 @@ const App: React.FC = () => {
   const [importFileContent, setImportFileContent] = useState<string | null>(null);
   const [importSummary, setImportSummary] = useState<ImportPreviewModalProps['summary']>(null);
   const [showImportPreview, setShowImportPreview] = useState(false);
-
-  // State for migration modal
-  const [isMigrationConfirmOpen, setIsMigrationConfirmOpen] = useState(false);
-  const [migrationPromptShown, setMigrationPromptShown] = useState(false);
   const [migrationProgress, setMigrationProgress] = useState<{ current: number; total: number } | null>(null);
-
-  // State for appointment add success callback
   const [onAppointmentAddSuccess, setOnAppointmentAddSuccess] = useState<(() => void) | null>(null);
 
   const handleSetOnAppointmentAddSuccess = useCallback((callback: (() => void) | null) => {
       setOnAppointmentAddSuccess(() => callback);
   }, []);
 
-  useEffect(() => {
-    // Startup migration prompt disabled by user request.
-  }, [customersToMigrateCount, isLoading, migrationPromptShown]);
-
-  const handleConfirmMigration = async () => {
-    setIsMigrationConfirmOpen(false);
-    runAddressMigration((current, total) => {
-        setMigrationProgress({ current, total });
-    }).then(() => {
-        setNotification({ message: '고객 주소 좌표 변환이 완료되었습니다.', type: 'success' });
-        setTimeout(() => setMigrationProgress(null), 2000); // Hide after 2 seconds on completion
-    }).catch(e => {
-        setNotification({ message: `좌표 변환 중 오류 발생: ${(e as Error).message}`, type: 'error' });
-        setMigrationProgress(null);
-    });
-  };
-
-  // Habit notification logic
     const lastNotificationCheck = useRef<string | null>(null);
     useEffect(() => {
         if (typeof window.Notification === 'undefined' || window.Notification.permission !== 'granted' || habits.length === 0) {
@@ -691,14 +640,13 @@ const App: React.FC = () => {
             });
         };
 
-        const interval = setInterval(checkNotifications, 30000); // Check every 30 seconds
+        const interval = setInterval(checkNotifications, 30000); 
 
         return () => clearInterval(interval);
 
     }, [habits, habitLogs]);
 
 
-  // TA Calling List handlers
   const startCallingList = useCallback((customerIds: string[]) => {
     setCallingListCustomerIds(customerIds);
     setCompletedInCallingList(new Set());
@@ -717,7 +665,6 @@ const App: React.FC = () => {
   }, [callingListCustomerIds]);
 
 
-  // Rollover unfinished todos from past days to today on app load
   useEffect(() => {
     if(!isLoading) {
       rolloverTodos();
@@ -756,21 +703,9 @@ const App: React.FC = () => {
     meetingType: MeetingType;
   } | null>(null);
   
-    // --- PC Completion Wizard State ---
     const [pcCompletionWizardState, setPcCompletionWizardState] = useState<{ isOpen: boolean; appointment: Appointment | null }>({ isOpen: false, appointment: null });
-
-    // --- AP Completion Wizard State ---
     const [apCompletionWizardState, setApCompletionWizardState] = useState<{ isOpen: boolean; appointment: Appointment | null }>({ isOpen: false, appointment: null });
 
-    // --- Action Toast State & Handlers ---
-    interface ToastData {
-      message: string;
-      confirmLabel?: string;
-      secondaryConfirmLabel?: string;
-      onConfirm: (isButtonClick: boolean) => void;
-      onSecondaryConfirm?: () => void;
-      onUndo?: () => void;
-    }
     const [actionToast, setActionToast] = useState<ToastData | null>(null);
     const toastTimeoutRef = useRef<number | null>(null);
 
@@ -827,15 +762,10 @@ const App: React.FC = () => {
     }, [updateAppointmentStatus]);
 
     const handleOpenFollowUpModal = useCallback((appointment: Appointment) => {
-        // Determine the base date from the original appointment, accounting for recurring instances
         const baseDateStr = (appointment as any).occurrenceDate || appointment.date;
-    
-        // Safely create a date object and advance it by 7 days
         const [year, month, day] = baseDateStr.split('-').map(Number);
         const originalDate = new Date(year, month - 1, day);
         originalDate.setDate(originalDate.getDate() + 7);
-    
-        // Format back to YYYY-MM-DD string, handling timezones
         const newDateStr = new Date(originalDate.getTime() - (originalDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
         
         const newAppointmentData: Partial<Appointment> = {
@@ -851,12 +781,9 @@ const App: React.FC = () => {
             status: 'scheduled',
         };
         
-        let completedOriginalId: string | undefined;
-    
         setAppointmentModal({ 
             isOpen: true, 
             appointment: newAppointmentData as Appointment, 
-            completedOriginalId 
         });
     }, []);
 
@@ -978,7 +905,6 @@ const App: React.FC = () => {
         setIsAIModalOpen(true);
     }
     
-    // When a TA call is logged, create a completed 'TA' appointment to reflect in the activity summary
     if (['meeting_scheduled', 'rejected', 'recall', 'other'].includes(result)) {
         const today = new Date();
         const todayStr = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
@@ -1011,14 +937,13 @@ const App: React.FC = () => {
     await updateCustomer(updatedCustomer);
 
     const onUndo = () => {
-        // Revert by updating the customer with their original call history
         updateCustomer({ ...customer, callHistory: customer.callHistory || [] });
         setNotification({ message: '터치 기록이 취소되었습니다.', type: 'success' });
     };
 
     handleRequestAction({
         message: `${customer.name}님께 '터치'를 기록했습니다.`,
-        onConfirm: () => {}, // No-op, action is already committed
+        onConfirm: () => {}, 
         onUndo: onUndo,
     });
   }, [updateCustomer, handleRequestAction]);
@@ -1058,9 +983,8 @@ const App: React.FC = () => {
           setCustomers(prev => prev.map(c => c.id === consultationUpdatedCustomer.id ? consultationUpdatedCustomer : c));
       }
       
-      // Automatically create a performance prediction for PC appointments in the current month
       if (appointment.meetingType === 'PC' && appointment.customerName) {
-        const appointmentDate = new Date(appointment.date + 'T00:00:00'); // Ensure local date parsing
+        const appointmentDate = new Date(appointment.date + 'T00:00:00'); 
         const today = new Date();
         if (appointmentDate.getFullYear() === today.getFullYear() && appointmentDate.getMonth() === today.getMonth()) {
             const predictionExists = performancePredictions.some(p => 
@@ -1071,7 +995,7 @@ const App: React.FC = () => {
                 const newPrediction: Omit<PerformancePrediction, 'id'> = {
                     customerName: appointment.customerName,
                     pcDate: appointment.date,
-                    productName: '상품명 미정', // Default placeholder
+                    productName: '상품명 미정', 
                     premium: 0,
                     recognizedPerformance: 0,
                 };
@@ -1122,36 +1046,28 @@ const App: React.FC = () => {
 
     for (const record of records) {
         const { contractorName, dob } = record;
-        
-        // Step 1: Try to find an exact match with name and DOB first
         if (dob && contractorName) {
             const exactMatches = customers.filter(c => c.name === contractorName && c.birthday === dob && c.status !== 'archived');
             if (exactMatches.length === 1) {
                 await associateContractWithCustomer(exactMatches[0].id, record);
-                continue; // Proceed to the next record
+                continue; 
             }
         }
         
-        // Step 2: If no unique exact match, fall back to name-only matching
         const nameMatches = customers.filter(c => c.name === contractorName && c.status !== 'archived');
 
         if (nameMatches.length === 0) {
-            // No customer with this name, create a new one
             await associateContractWithCustomer(null, record, record.customerType);
         } else if (nameMatches.length === 1) {
-            // Exactly one customer with this name, associate with them
             await associateContractWithCustomer(nameMatches[0].id, record);
-        } else { // nameMatches.length > 1
-            // Multiple customers with the same name, requires user selection
+        } else { 
             if (records.length === 1) {
-                // For single record addition, show the modal
                 setSelectCustomerForContractModalState({
                     isOpen: true,
                     record,
                     matchingCustomers: nameMatches,
                 });
             } else {
-                // For bulk addition, count it as an ambiguous case
                 multiMatchCount++;
             }
         }
@@ -1214,7 +1130,7 @@ const App: React.FC = () => {
                   ...customer,
                   tags: Array.from(new Set([...customer.tags, '거절고객'])),
                   rejectionReason: data.rejectionData.reason,
-                  recontactProbability: data.rejectionData.probability,
+                  recontactProbability: data.recontactProbability,
                   rejectionNotes: data.rejectionData.notes,
                   rejectionDate: todayStr,
                   nextFollowUpDate: data.rejectionData.nextFollowUpDate || undefined
@@ -1391,7 +1307,6 @@ const App: React.FC = () => {
 
     const lowerQuery = query.toLowerCase();
 
-    // Helper function to generate a snippet with highlighted text
     const generateSnippet = (text: string, context = 20): string => {
         if (!text) return '';
         const index = text.toLowerCase().indexOf(lowerQuery);
@@ -1540,7 +1455,6 @@ const App: React.FC = () => {
         
         const isMobile = /Mobi/i.test(navigator.userAgent);
 
-        // --- For Mobile: Try sharing as a .txt file first ---
         if (isMobile) {
             const shareFileName = `${fileTimestamp}-aicrm-backup.txt`;
             const shareBlob = new Blob([jsonData], { type: 'text/plain' });
@@ -1554,18 +1468,16 @@ const App: React.FC = () => {
                         text: `AI CRM 데이터 백업 파일: ${shareFileName}`,
                     });
                     setNotification({ message: '데이터를 성공적으로 공유했습니다.', type: 'success' });
-                    return; // Early return on successful share
+                    return; 
                 } catch (error) {
                     if (error instanceof DOMException && error.name === 'AbortError') {
                         console.log('Share was cancelled by the user.');
                         return;
                     }
-                    console.error('Web Share API failed on mobile, will fall back to download.', error);
                 }
             }
         }
         
-        // --- For PC (and mobile fallback): Download as a .json file ---
         const downloadFileName = `${fileTimestamp}-aicrm-backup.json`;
         const downloadBlob = new Blob([jsonData], { type: 'application/json' });
         const link = document.createElement('a');
@@ -1622,7 +1534,6 @@ const App: React.FC = () => {
         const data = JSON.parse(importFileContent);
         const imported = await importData(data);
         
-        // Update all states
         setCustomers(imported.customers);
         setAppointments(imported.appointments);
         setScripts(imported.scripts);
@@ -1873,7 +1784,6 @@ const App: React.FC = () => {
                   onDeleteConsultation={deleteConsultation}
                   onDeleteMultipleConsultations={deleteMultipleConsultations}
                   onAddPrediction={addPerformancePrediction}
-                  // FIX: Corrected variable name from updatePrediction to updatePerformancePrediction which matches the destruction from usePerformancePredictions.
                   onUpdatePrediction={updatePerformancePrediction}
                   onOpenConsultationRecordModal={handleOpenConsultationRecordModal}
                  />
@@ -2062,7 +1972,6 @@ const App: React.FC = () => {
                       <GlobalSearchBar onSearch={handleSearch} isSearching={isSearching} />
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                      {/* Profile Info - Hidden on mobile */}
                       <div className="hidden md:flex items-center gap-3">
                           <div className="w-9 h-9 bg-[var(--background-accent)] rounded-full flex items-center justify-center text-[var(--text-on-accent)] font-bold text-lg flex-shrink-0">
                             {(profileInfo?.name?.[0] || 'P')}
@@ -2073,10 +1982,8 @@ const App: React.FC = () => {
                           </div>
                       </div>
                       
-                      {/* Separator - Hidden on mobile */}
                       <div className="hidden md:block w-px h-8 bg-[var(--border-color)] mx-2"></div>
                       
-                      {/* Action Icons */}
                       <div className="flex items-center gap-0 md:gap-1">
                           <button onClick={() => setIsAddProspectModalOpen(true)} title="고객 추가" className="p-2 rounded-full hover:bg-[var(--background-tertiary)] text-[var(--text-secondary)] transition-colors">
                               <span className="sr-only">고객 추가</span>
@@ -2179,13 +2086,6 @@ const App: React.FC = () => {
             onConfirm={handleClearDemoData}
             title="예시 데이터 삭제 확인"
             message="모든 예시 고객, 일정, 실적 등의 데이터를 삭제하고 앱을 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다."
-        />}
-        {isMigrationConfirmOpen && <ConfirmationModal
-            isOpen={isMigrationConfirmOpen}
-            onClose={() => setIsMigrationConfirmOpen(false)}
-            onConfirm={handleConfirmMigration}
-            title="고객 주소 좌표 변환"
-            message={<p>{customersToMigrateCount}명의 고객 주소 정보 업데이트가 필요합니다. 지금 좌표로 변환하시겠습니까? (시간이 걸릴 수 있습니다)</p>}
         />}
       {migrationProgress && (
           <MigrationProgressModal

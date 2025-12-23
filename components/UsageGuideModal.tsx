@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import BaseModal from './ui/BaseModal';
 import { XIcon, CheckIcon } from './icons';
@@ -47,8 +46,8 @@ const UsageGuideModal: React.FC<UsageGuideModalProps> = ({ isOpen, onClose }) =>
         <Section title="📱 설치 및 모바일 이용 팁">
             <p><strong>'홈 화면에 추가'</strong> 기능을 통해 앱처럼 설치하여 사용하세요.</p>
             <ul className="list-disc list-inside ml-2 space-y-1">
-                <li><strong>안드로이드 (크롬):</strong> 우측 상단 메뉴(⋮) > '앱 설치' 또는 '홈 화면에 추가'</li>
-                <li><strong>iOS (사파리):</strong> 하단 공유 버튼(↑) > '홈 화면에 추가'</li>
+                <li><strong>안드로이드 (크롬):</strong> 우측 상단 메뉴(⋮) &gt; '앱 설치' 또는 '홈 화면에 추가'</li>
+                <li><strong>iOS (사파리):</strong> 하단 공유 버튼(↑) &gt; '홈 화면에 추가'</li>
             </ul>
             <p className="text-amber-600 font-medium">⚠️ 카카오톡 내장 브라우저 이용 시 기능이 제한됩니다. 반드시 우측 하단 점 세개(...)를 눌러 <strong>'다른 브라우저로 열기'</strong>를 선택해 주세요.</p>
         </Section>
@@ -78,14 +77,14 @@ const UsageGuideModal: React.FC<UsageGuideModalProps> = ({ isOpen, onClose }) =>
         </Section>
 
         <Section title="🔐 보안 및 데이터 관리">
-            <p><strong>비밀번호 잠금:</strong> <strong>[기능 및 설정] > [프로필 설정]</strong> 탭에서 비밀번호를 직접 설정할 수 있습니다. 초기 비밀번호는 따로 없으며, 설정 후에는 앱 실행 시 잠금화면이 표시됩니다.</p>
+            <p><strong>비밀번호 잠금:</strong> <strong>[기능 및 설정] &gt; [프로필 설정]</strong> 탭에서 비밀번호를 직접 설정할 수 있습니다. 초기 비밀번호는 따로 없으며, 설정 후에는 앱 실행 시 잠금화면이 표시됩니다.</p>
             <p><strong>철저한 개인정보 보호:</strong> 모든 데이터는 서버에 저장되지 않고 오직 <strong>사용자의 기기에만</strong> 암호화되어 저장됩니다.</p>
             <p><strong>백업 및 복원:</strong> 기기 변경 시 <strong>'데이터 내보내기'</strong>로 백업 파일을 생성하고, 새 기기에서 <strong>'가져오기'</strong>를 통해 간편하게 데이터를 옮길 수 있습니다.</p>
         </Section>
 
-        <div className="p-4 bg-[var(--background-tertiary)] rounded-lg text-center">
-            <p className="text-sm font-semibold text-[var(--text-primary)]">이제 나만의 지능형 CRM을 시작해 보세요!</p>
-            <p className="text-xs text-[var(--text-muted)] mt-1">예시 데이터를 둘러보신 후 [설정] 하단에서 '예시 데이터 삭제'를 눌러 초기화할 수 있습니다.</p>
+        <div className="p-4 bg-[var(--background-tertiary)] rounded-lg text-center border border-[var(--border-color-strong)]/30">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">💡 팁: 가이드를 다시 보고 싶다면?</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">하단 메뉴 <strong>[기능]</strong> 탭 하단의 <strong>'📖 사용 가이드 보기'</strong> 버튼을 클릭하면 언제든지 다시 확인할 수 있습니다.</p>
         </div>
       </div>
       <div className="p-6 bg-[var(--background-secondary)] border-t border-[var(--border-color)] flex justify-between items-center shrink-0 rounded-b-lg">
@@ -101,7 +100,7 @@ const UsageGuideModal: React.FC<UsageGuideModalProps> = ({ isOpen, onClose }) =>
                     {dontShowAgain && <CheckIcon className="w-4 h-4 text-white" />}
                 </div>
             </div>
-            <span className="ml-2 text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">오늘 하루 보지 않기</span>
+            <span className="ml-2 text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">다시 보지 않기</span>
         </label>
         <button onClick={() => handleClose()} className="px-8 py-2 bg-[var(--background-accent)] text-[var(--text-on-accent)] rounded-lg text-sm font-bold hover:bg-[var(--background-accent-hover)] shadow-md transition-all active:scale-95">
           가이드 닫기
